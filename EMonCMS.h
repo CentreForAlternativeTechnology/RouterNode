@@ -1,7 +1,8 @@
-#ifndef EMONCMS_H
-#define EMONCMS_H
+#ifndef __EMONCMS_H__
+#define __EMONCMS_H__
 
 #define BYTES(x) ((unsigned char *)(x))
+#define T_USHORT(x) (*((unsigned short *)(x)))
 
 enum dataTypes {
 	STRING = 0,
@@ -42,7 +43,16 @@ typedef struct {
 	DataItem nodeID;
 } RegisterRequest;
 
-bool isEMonCMSPacket(unsigned char type);
-bool parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]);
+class EMonCMS {
+	public:
+		EMonCMS();
+		~EMonCMS();
+		bool isEMonCMSPacket(unsigned char type);
+		bool parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]);
+	protected:
+		unsigned char nodeID;
+		bool checkHeader(HeaderInfo *header, unsigned char size);
+		int getTypeSize(unsigned char type);
+};
 
 #endif

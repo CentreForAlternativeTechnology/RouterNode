@@ -1,8 +1,17 @@
 #include <RF24.h>
 #include <RF24Network.h>
 #include "EMonCMS.h"
+#include "Debug.h"
 
-bool isEMonCMSPacket(unsigned char type) {
+EMonCMS::EMonCMS() {
+	this->nodeID = 0;
+}
+
+EMonCMS::~EMonCMS() {
+	
+}
+
+bool EMonCMS::isEMonCMSPacket(unsigned char type) {
 	switch(type) {
 		case 'r':
 			/* Acknowledged register */
@@ -18,7 +27,7 @@ bool isEMonCMSPacket(unsigned char type) {
 	}
 }
 
-int getTypeSize(unsigned char type) {
+int EMonCMS::getTypeSize(unsigned char type) {
 	switch(type) {
 		case STRING: case CHAR: case UCHAR:
 			return 1;
@@ -33,7 +42,11 @@ int getTypeSize(unsigned char type) {
 	}
 }
 
-bool parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]) {
+bool EMonCMS::checkHeader(HeaderInfo *header, unsigned char size) {
+	return header->dataCount == size;
+}
+
+bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]) {
 	if(!isEMonCMSPacket(header->type)) {
 		return false;
 	}
@@ -49,6 +62,17 @@ bool parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem item
 			items[i].item = &(buffer[index]);
 			index += getTypeSize(items[i].type);
 		}
+	}
+
+	switch(header->type) {
+		case 'r':
+			if(!checkHeader(header, 1)) {
+				break;
+			}
+			this->nodeID = T_USHORT(items[0].item);
+			LOG("emonCMSNodeID = "); LOG(this->nodeID); LOG("\n");
+			break;
+			
 	}
 
 	return true;

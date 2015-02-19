@@ -1,5 +1,3 @@
-#define DEBUG
-
 #define MAX_PACKET_SIZE 512
 
 #include <RF24.h>
@@ -9,16 +7,13 @@
 #include <EEPROM.h>
 
 #include "EMonCMS.h"
-
-#ifdef DEBUG
-#define LOG(x) Serial.print(x)
-#else
-#define LOG(x)
-#endif
+#include "Debug.h"
 
 RF24 radio(7,8);
 RF24Network network(radio);
 RF24Mesh mesh(radio, network);
+
+EMonCMS emonCMS;
 
 unsigned char nodeID;
 
@@ -48,7 +43,7 @@ void loop() {
 		RF24NetworkHeader header;
 		network.peek(header);
 
-		if(isEMonCMSPacket(header.type)) {
+		if(emonCMS.isEMonCMSPacket(header.type)) {
 			HeaderInfo emonCMSHeader;
 			/* Setup an EMonCMS packet */
 			if(network.read(header, &emonCMSHeader, 4) == 4) {
@@ -62,7 +57,7 @@ void loop() {
 					if(network.read(header, buffer, emonCMSHeader.dataSize) != emonCMSHeader.dataSize) {
 						LOG("Failed to read entire EMonCMS data packet\n");
 					} else {
-						if(!parseEMonCMSPacket(&emonCMSHeader, buffer, items)) {
+						if(!emonCMS.parseEMonCMSPacket(&emonCMSHeader, buffer, items)) {
 							LOG("Failed to parse EMonCMS packet\n");
 						}
 					}
