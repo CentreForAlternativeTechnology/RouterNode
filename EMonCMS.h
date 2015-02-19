@@ -23,6 +23,7 @@ enum status {
 typedef struct {
 	unsigned char status;
 	unsigned char dataCount;
+	unsigned short dataSize;
 	unsigned char type;
 } HeaderInfo;
 
@@ -41,9 +42,7 @@ typedef struct {
 	DataItem nodeID;
 } RegisterRequest;
 
-typedef int (*networkRead)(void *callbackData, int numBytes, void *buffer);
-
 bool isEMonCMSPacket(unsigned char type);
-bool parseEMonCMSPacket(HeaderInfo *header, DataItem *items[], networkRead read, void *callbackData);
+bool parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]);
 
 #endif

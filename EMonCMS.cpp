@@ -33,50 +33,21 @@ int getTypeSize(unsigned char type) {
 	}
 }
 
-bool parseEMonCMSPacket(HeaderInfo *header, DataItem *items[], networkRead read, void *callbackData) {
+bool parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]) {
 	if(!isEMonCMSPacket(header->type)) {
 		return false;
 	}
 
 	if(header->dataCount > 0) {
-		(*items) = (DataItem *)malloc(sizeof(DataItem) * header->dataCount);
-		for(int i=0; i<header->dataCount; i++) {
-			(*items)[i].item = NULL;
-		}
-		for(int i=0; i<header->dataCount; i++) {
-			/* Read the item type */
-			if(read(callbackData, 1, &(*items)[i].type) != 1) {
-				/* If it failed to read a byte then return false after freeing 
-				 *  memory allocated because of this function
-				 */
-				for(int j=0; j<=i; j++) {
-					if((*items)[i].item != NULL) {
-						free((*items)[i].item);
-					}
-				}
-				free(*items);
-				items = NULL;
-				return false;
-			} else {
-				/* If the type was successfully read then read the rest
-				 *  of the bytes for that type.
-				 */
-				int size = getTypeSize((*items)[i].type);
-				(*items)[i].item = malloc(size);
-				if(read(callbackData, size, (*items)[i].item) != size) {
-					/* If it failed to read the bytes for this type then free
-					 *  the memory allocated by this function and return false.
-					 */
-					for(int j=0; j<=i; j++) {
-						if((*items)[i].item != NULL) {
-							free((*items)[i].item);
-						}
-					}
-					free(*items);
-					items = NULL;
-					return false;
-				}
-			}
+		int index = 0;
+		/* For each of the data items in the buffer set them up
+		 *  in data items.
+		 */
+		for(int i = 0; i < header->dataCount; i++) {
+			items[i].type = buffer[index];
+			index++;
+			items[i].item = &(buffer[index]);
+			index += getTypeSize(items[i].type);
 		}
 	}
 

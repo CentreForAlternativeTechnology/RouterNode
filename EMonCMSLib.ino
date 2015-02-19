@@ -1,5 +1,7 @@
 #define DEBUG
 
+#define MAX_PACKET_SIZE 512
+
 #include <RF24.h>
 #include <RF24Network.h>
 #include <RF24Mesh.h>
@@ -48,10 +50,26 @@ void loop() {
 
 		if(isEMonCMSPacket(header.type)) {
 			HeaderInfo emonCMSHeader;
-			if(network.read(header, &emonCMSHeader, 2) == 2) {
+			/* Setup an EMonCMS packet */
+			if(network.read(header, &emonCMSHeader, 4) == 4) {
 				emonCMSHeader.type = header.type;
-				DataItem *items = NULL;
-				parseEMonCMSPacket(&emonCMSHeader, &items, networkReader, &header);
+				if(emonCMSHeader.dataSize < MAX_PACKET_SIZE) {
+					/* Setup buffers for storing the read data and parsing
+					 *  it to a reable format.
+					 */
+					unsigned char buffer[emonCMSHeader.dataSize];
+					DataItem items[emonCMSHeader.dataCount];
+					if(network.read(header, buffer, emonCMSHeader.dataSize) != emonCMSHeader.dataSize) {
+						LOG("Failed to read entire EMonCMS data packet\n");
+					} else {
+						if(!parseEMonCMSPacket(&emonCMSHeader, buffer, items)) {
+							LOG("Failed to parse EMonCMS packet\n");
+						}
+					}
+				} else {
+					LOG("Received packet too large, discarding\n");
+					network.read(header,0,0); 
+				}
 			} else {
 				LOG("Failed to read header bytes");
 			}
