@@ -47,7 +47,21 @@ int main(int argc, char *args[]) {
 		passCount++;
 	}
 	unsigned char regBuffer[regSize];
-	emon.attrBuilder(ATTR_REGISTER, regItems, 4, regBuffer);
+	if(regSize != emon.attrBuilder(ATTR_REGISTER, regItems, 4, regBuffer)) {
+		std::cout << "ERR: estimated size does not equal actual size\n";
+		failure++;
+	} else {
+		passCount++;
+	}
+
+	unsigned char regCmp[] = { 0x0, 0x5, 0x15, 0x0, 0x4, 0x0, 0x0, 0x4, 0x53, 0x64,
+					0x4, 0x21, 0x23, 0x4, 0x21, 0x3, 0x9, 0x8, 0xe, 0x3, 0x0, 0x0, 0x0, 0x0, 0x0 };
+	if(memcmp(regBuffer, regCmp, regSize) == 0) {
+		passCount++;
+	} else {
+		failure++;
+		std::cout << "ERR: attr register output does not match expected output";
+	}
 	
 	std::cout << passCount << " passes of " << (passCount + failure) << "\n";
 	

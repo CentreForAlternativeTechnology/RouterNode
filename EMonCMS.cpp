@@ -130,7 +130,7 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 	/* Setup the header and input neccessary data */
 	HeaderInfo *header = (HeaderInfo *)buffer;
 	header->dataSize = 0;
-	for(int i = 0; i < 0; i++) {
+	for(int i = 0; i < length; i++) {
 		header->dataSize += sizeof(items[i].type) + this->getTypeSize(items[i].type);
 	}
 	
@@ -143,13 +143,13 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 				return 0;
 			}
 			header->dataCount = 5; /* NID, GID, AID, ATTRNUM, ATTRVAL/ATTRDEFAULT */
-			header->dataSize = (sizeof(nodeID) + 1) + length;
+			header->dataSize += (sizeof(nodeID) + 1);
 			header->status = SUCCESS;
 			/* Add Node ID to packet */
 			DataItem nid;
 			nid.type = USHORT;
 			nid.item = &(this->nodeID);
-			itemIndex += dataItemToBuffer(&nid, &buffer[itemIndex]);
+			itemIndex += dataItemToBuffer(&nid, &(buffer[itemIndex]));
 			break;
 		case NODE_REGISTER:
 			header->status = SUCCESS;
@@ -164,5 +164,5 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 	for(int i = 0; i < header->dataCount; i++) {
 		itemIndex += dataItemToBuffer(&(items[i]), &(buffer[itemIndex]));
 	}
-	return itemIndex;
+	return itemIndex - 1;
 }
