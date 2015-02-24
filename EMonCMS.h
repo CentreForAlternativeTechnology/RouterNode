@@ -21,11 +21,16 @@ enum status {
 	SUCCESS = 0
 };
 
+enum RequestType {
+	NODE_REGISTER,
+	ATTR_REGISTER,
+	ATTR_POST
+};
+
 typedef struct {
 	unsigned char status;
 	unsigned char dataCount;
 	unsigned short dataSize;
-	unsigned char type;
 } HeaderInfo;
 
 typedef struct {
@@ -39,6 +44,12 @@ typedef struct {
 } CharArray;
 
 typedef struct {
+	unsigned short groupID;
+	unsigned short attributeID;
+	unsigned short attributeNumber;
+} AttributeIdentifier;
+
+typedef struct {
 	HeaderInfo header;
 	DataItem nodeID;
 } RegisterRequest;
@@ -48,11 +59,15 @@ class EMonCMS {
 		EMonCMS();
 		~EMonCMS();
 		bool isEMonCMSPacket(unsigned char type);
-		bool parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]);
+		bool parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigned char *buffer, DataItem items[]);
+		int attrSize(RequestType type, DataItem *item, int length);
+		int attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer);
+		void attrIdentAsDataItems(AttributeIdentifier *ident, DataItem *attrItems);
 	protected:
-		unsigned char nodeID;
+		unsigned short nodeID;
 		bool checkHeader(HeaderInfo *header, unsigned char size);
 		int getTypeSize(unsigned char type);
+		int dataItemToBuffer(DataItem *item, unsigned char *buffer);
 };
 
 #endif

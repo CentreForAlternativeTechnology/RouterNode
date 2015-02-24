@@ -22,9 +22,9 @@ void setup() {
 	Serial.begin(115200);
 #endif
 	nodeID = EEPROM.read(0);
-	LOG("Node id is "); LOG(nodeID); LOG("\n");
+	LOG(F("Node id is ")); LOG(nodeID); LOG(F("\n"));
 	mesh.setNodeID(nodeID);
-	LOG("Connecting to mesh...\n");
+	LOG(F("Connecting to mesh...\n"));
 	mesh.begin();
 	/*
 	registerRequest r;
@@ -47,7 +47,6 @@ void loop() {
 			HeaderInfo emonCMSHeader;
 			/* Setup an EMonCMS packet */
 			if(network.read(header, &emonCMSHeader, 4) == 4) {
-				emonCMSHeader.type = header.type;
 				if(emonCMSHeader.dataSize < MAX_PACKET_SIZE) {
 					/* Setup buffers for storing the read data and parsing
 					 *  it to a reable format.
@@ -55,22 +54,22 @@ void loop() {
 					unsigned char buffer[emonCMSHeader.dataSize];
 					DataItem items[emonCMSHeader.dataCount];
 					if(network.read(header, buffer, emonCMSHeader.dataSize) != emonCMSHeader.dataSize) {
-						LOG("Failed to read entire EMonCMS data packet\n");
+						LOG(F("Failed to read entire EMonCMS data packet\n"));
 					} else {
-						if(!emonCMS.parseEMonCMSPacket(&emonCMSHeader, buffer, items)) {
-							LOG("Failed to parse EMonCMS packet\n");
+						if(!emonCMS.parseEMonCMSPacket(&emonCMSHeader, header.type, buffer, items)) {
+							LOG(F("Failed to parse EMonCMS packet\n"));
 						}
 					}
 				} else {
-					LOG("Received packet too large, discarding\n");
+					LOG(F("Received packet too large, discarding\n"));
 					network.read(header,0,0); 
 				}
 			} else {
-				LOG("Failed to read header bytes");
+				LOG(F("Failed to read header bytes"));
 			}
 		} else {
 			network.read(header,0,0); 
-			LOG("Unknown packet type, discarding\n");
+			LOG(F("Unknown packet type, discarding\n"));
 		}
 	}
 }
