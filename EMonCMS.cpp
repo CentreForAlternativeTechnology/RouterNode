@@ -6,7 +6,7 @@ EMonCMS::EMonCMS() {
 }
 
 EMonCMS::~EMonCMS() {
-	
+	/* do nothing */
 }
 
 bool EMonCMS::isEMonCMSPacket(unsigned char type) {
@@ -15,7 +15,7 @@ bool EMonCMS::isEMonCMSPacket(unsigned char type) {
 			/* Acknowledged register */
 		case 'a':
 			/* Acknowledged attribute registration */
-		case 'p': 
+		case 'p':
 			/* Acknowledged post */
 		case 'P':
 			/* Request for attribute */
@@ -80,7 +80,6 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 		default:
 			LOG(F("Unknown header type ")); LOG(type); LOG(F("\n"));
 			return false;
-			
 	}
 
 	return true;
@@ -133,13 +132,13 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 	for(int i = 0; i < length; i++) {
 		header->dataSize += sizeof(items[i].type) + this->getTypeSize(items[i].type);
 	}
-	
+
 	int itemIndex = sizeof(HeaderInfo);
 	switch(type) {
 		case ATTR_REGISTER:
 		case ATTR_POST:
 			if(length != 4) {
-				LOG(F("No items passed to builder for post/register\n"));
+				LOG(F("Wrong number of items passed to builder for post/register\n"));
 				return 0;
 			}
 			header->dataCount = 5; /* NID, GID, AID, ATTRNUM, ATTRVAL/ATTRDEFAULT */
@@ -160,9 +159,9 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 			LOG(F("Requested build of unknown\n"));
 			return 0;
 	}
-	
-	for(int i = 0; i < header->dataCount; i++) {
+
+	for(int i = 0; i < length; i++) {
 		itemIndex += dataItemToBuffer(&(items[i]), &(buffer[itemIndex]));
 	}
-	return itemIndex - 1;
+	return itemIndex;
 }
