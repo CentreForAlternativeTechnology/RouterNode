@@ -85,6 +85,10 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 	return true;
 }
 
+unsigned short EMonCMS::getNodeID() {
+	return this->nodeID;
+}
+
 int EMonCMS::attrSize(RequestType type, DataItem *item, int length) {
 	int size = sizeof(HeaderInfo);
 	for(int i = 0; i < length; i++) {

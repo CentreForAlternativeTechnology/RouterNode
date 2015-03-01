@@ -28,9 +28,9 @@ enum RequestType {
 };
 
 typedef struct {
+	unsigned short dataSize;
 	unsigned char status;
 	unsigned char dataCount;
-	unsigned short dataSize;
 } HeaderInfo;
 
 typedef struct {
@@ -63,6 +63,7 @@ class EMonCMS {
 		int attrSize(RequestType type, DataItem *item, int length);
 		int attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer);
 		void attrIdentAsDataItems(AttributeIdentifier *ident, DataItem *attrItems);
+		unsigned short getNodeID();
 	protected:
 		unsigned short nodeID;
 		bool checkHeader(HeaderInfo *header, unsigned char size);
