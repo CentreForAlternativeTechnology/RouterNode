@@ -54,7 +54,7 @@ typedef struct {
 } AttributeIdentifier;
 
 typedef int (*NetworkSender)(unsigned char type, unsigned char *buffer, int length);
-typedef int (*AttributeReader)(DataItem *item);
+typedef int (*AttributeReader)(AttributeIdentifier *attr, DataItem *item);
 
 typedef struct {
 	AttributeIdentifier attr;
@@ -72,7 +72,7 @@ class EMonCMS {
 		int attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer);
 		void attrIdentAsDataItems(AttributeIdentifier *ident, DataItem *attrItems);
 		unsigned short getNodeID();
-		AttributeValue *getAttribute(AttributeIdentifier attr);
+		AttributeValue *getAttribute(AttributeIdentifier *attr);
 	protected:
 		unsigned short nodeID;
 		bool checkHeader(HeaderInfo *header, unsigned char size);

@@ -14,6 +14,9 @@
 		std::cout << #x ": FAIL\n"; \
 	} \
 	total++;
+	
+int globalFakeReading = 234234;
+unsigned char tmpBuffer[128];
 
 bool testNodeRegisterRequest() {
 	EMonCMS emon(NULL, 0, NULL);
@@ -127,6 +130,49 @@ bool testSetNodeID() {
 	
 }
 
+int fakeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+	item->type = INT;
+	item->item = &globalFakeReading;
+}
+
+int fakeNetworkSender(unsigned char type, unsigned char *buffer, int length) {
+	memcpy(tmpBuffer, buffer, length);
+}
+
+bool testAttributePostResponse() {
+	/* Build an attribute to be registered */
+	AttributeValue attrVal;
+	attrVal.attr.groupID = 10;
+	attrVal.attr.attributeID = 20;
+	attrVal.attr.attributeNumber = 40;
+	attrVal.reader = fakeAttributeReader;
+	attrVal.registered = false;
+	
+	EMonCMS emon(&attrVal, 1, fakeNetworkSender);
+	
+	/* Create a fake request for the specified attribute */
+	HeaderInfo header;
+	header.status = SUCCESS;
+	header.dataCount = 4;
+	header.dataSize = 12;
+	unsigned char testBuffer[12] = { USHORT, 0x00, 0x00, USHORT, 0x0a, 0x00, USHORT, 0x14, 0x00, USHORT, 0x28, 0x00 };
+	DataItem items[4]; 
+	if(!emon.parseEMonCMSPacket(&header, 'P', testBuffer, items)) {
+		LOG("Error parsing request packing\n");
+		return false;
+	}
+	
+	unsigned char cmpBuffer[] = { 0x11, 0x0, 0x0, 0x5, 0x4, 0x0, 0x0, 0x4, 0x0, 0x0,
+		0x4, 0xa, 0x0, 0x4, 0x14, 0x0, 0x5, 0xfa, 0x92, 0x3, 0x0 };
+	if(memcmp(cmpBuffer, tmpBuffer, 21) != 0) {
+		LOG("Error: expected output of testing fetch attribute request fails\n");
+		return false;
+	}
+	
+	
+	return true;
+}
+
 int main(int argc, char *args[]) {
 	int total = 0;
 	int passCount = 0;
@@ -135,6 +181,7 @@ int main(int argc, char *args[]) {
 	TEST(testAttributeRegisterRequest);
 	TEST(testAttributePostRequest);
 	TEST(testSetNodeID);
+	TEST(testAttributePostResponse);
 	
 	std::cout << passCount << " pass of " << total << "\n";
 	

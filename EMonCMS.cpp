@@ -49,13 +49,13 @@ bool EMonCMS::checkHeader(HeaderInfo *header, unsigned char size) {
 	return header->dataCount == size;
 }
 
-AttributeValue *EMonCMS::getAttribute(AttributeIdentifier attr) {
+AttributeValue *EMonCMS::getAttribute(AttributeIdentifier *attr) {
 	for(int i = 0; i < this->attrValuesLength; i++) {
-		if(this->attrValues[i].attr.groupID == attr.groupID &&
-			this->attrValues[i].attr.groupID == attr.attributeID &&
-			this->attrValues[i].attr.groupID == attr.attributeNumber)
+		if(this->attrValues[i].attr.groupID == attr->groupID &&
+			this->attrValues[i].attr.attributeID == attr->attributeID &&
+			this->attrValues[i].attr.attributeNumber == attr->attributeNumber)
 		{
-			&(this->attrValues[i]);
+			return &(this->attrValues[i]);
 		}
 	}
 	return NULL;
@@ -71,11 +71,11 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 	Status status = SUCCESS;
 
 	/* first do we have attribute, if not send back packet with error */
-	AttributeValue *attrVal = this->getAttribute(ident);
+	AttributeValue *attrVal = this->getAttribute(&ident);
 	DataItem item;
 	if(attrVal == NULL) {
 		status = UNSUPPORTED_ATTRIBUTE;
-	} else if(!attrVal->reader(&item)) {
+	} else if(!attrVal->reader(&ident, &item)) {
 		status = INVALID_VALUE;
 	}
 
@@ -108,6 +108,8 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 		}
 				
 	}
+	
+	return true;
 }
 
 bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigned char *buffer, DataItem items[]) {
@@ -142,7 +144,7 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 			break;
 		case 'P':
 			if(!requestAttribute(header, items)) {
-				LOG("Error responding to attribute request\n");
+				LOG(F("Error responding to attribute request\n"));
 				return false;
 			}
 			break;
