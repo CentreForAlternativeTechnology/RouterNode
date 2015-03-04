@@ -9,13 +9,28 @@
 #include "EMonCMS.h"
 #include "Debug.h"
 
+#define NODEIDREQUESTTIMEOUT 5000
+
 RF24 radio(7,8);
 RF24Network network(radio);
 RF24Mesh mesh(radio, network);
 
-EMonCMS emonCMS;
+EMonCMS *emon = NULL;
 
 unsigned char nodeID;
+unsigned long timeData = 0;
+unsigned long nodeIDRequestTime = 0;
+
+int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+	timeData = millis();
+	item->type = ULONG;
+	item->item = &timeData;
+}
+
+int networkWriter(unsigned char type, unsigned char *buffer, int length) {
+	RF24NetworkHeader header(0, type);
+	return network.write(header, buffer, length) ? length : 0;
+}
 
 void setup() {
 #ifdef DEBUG
@@ -26,24 +41,35 @@ void setup() {
 	mesh.setNodeID(nodeID);
 	LOG(F("Connecting to mesh...\n"));
 	mesh.begin();
-	/*
-	registerRequest r;
-	 	r.header.status = SUCCESS;
-	 	r.header.dataCount = 0;
-	 	*/
-}
 
-int networkReader(void *callbackData, int numBytes, void *buffer) {
-	return network.read(*((RF24NetworkHeader*)callbackData), buffer, numBytes);
+	AttributeValue attrVal;
+	attrVal.attr.groupID = 10;
+	attrVal.attr.attributeID = 20;
+	attrVal.attr.attributeNumber = 40;
+	attrVal.reader = timeAttributeReader;
+	attrVal.registered = false;
+
+	emon = new EMonCMS(&attrVal, 1, networkWriter);
+
 }
 
 void loop() {
 	mesh.update();
+	/* check to see whether we have a node id */
+	if(emon->getNodeID() == 0 && (millis() - nodeIDRequestTime) > NODEIDREQUESTTIMEOUT) {
+		int size = emon->attrSize(NODE_REGISTER, NULL, 0);
+		unsigned char buffer[size];
+		emon->attrBuilder(NODE_REGISTER, NULL, 0, buffer);
+		networkWriter('R', buffer, size);
+		nodeIDRequestTime = millis();
+		LOG(F("Sent a request for node ID\n"));
+	}
+	
 	if(network.available()) {
 		RF24NetworkHeader header;
 		network.peek(header);
 
-		if(emonCMS.isEMonCMSPacket(header.type)) {
+		if(emon->isEMonCMSPacket(header.type)) {
 			HeaderInfo emonCMSHeader;
 			/* Setup an EMonCMS packet */
 			if(network.read(header, &emonCMSHeader, 4) == 4) {
@@ -56,7 +82,7 @@ void loop() {
 					if(network.read(header, buffer, emonCMSHeader.dataSize) != emonCMSHeader.dataSize) {
 						LOG(F("Failed to read entire EMonCMS data packet\n"));
 					} else {
-						if(!emonCMS.parseEMonCMSPacket(&emonCMSHeader, header.type, buffer, items)) {
+						if(!emon->parseEMonCMSPacket(&emonCMSHeader, header.type, buffer, items)) {
 							LOG(F("Failed to parse EMonCMS packet\n"));
 						}
 					}
