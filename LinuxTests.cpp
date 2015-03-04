@@ -16,7 +16,7 @@
 	total++;
 
 bool testNodeRegisterRequest() {
-	EMonCMS emon;
+	EMonCMS emon(NULL, 0, NULL);
 	int regSize = 0;
 	if((regSize = emon.attrSize(NODE_REGISTER, NULL, 0)) != 4) {
 		std::cout << "ERR: Size of register should be 4, is " << regSize << "\n";
@@ -34,7 +34,7 @@ bool testNodeRegisterRequest() {
 }
 
 bool testAttributeRegisterRequest() {
-	EMonCMS emon;
+	EMonCMS emon(NULL, 0, NULL);
 	int regSize = 0;
 	DataItem regItems[4];
 	AttributeIdentifier regIdent;
@@ -70,7 +70,7 @@ bool testAttributeRegisterRequest() {
 }
 
 bool testAttributePostRequest() {
-	EMonCMS emon;
+	EMonCMS emon(NULL, 0, NULL);
 	DataItem postItems[4];
 	AttributeIdentifier postIdent;
 	postIdent.groupID = 0x6453;
@@ -104,7 +104,7 @@ bool testAttributePostRequest() {
 }
 
 bool testSetNodeID() {
-	EMonCMS emon;
+	EMonCMS emon(NULL, 0, NULL);
 	unsigned char setterPacket[] = { 0x00, 0x03, 0x00, 0x01, 0x05, 0x12, 0x53 };
 	if(!emon.isEMonCMSPacket('r')) {
 		LOG("ERR: Packet not identified as register\n");

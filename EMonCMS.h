@@ -18,7 +18,9 @@ enum dataTypes {
 };
 
 enum status {
-	SUCCESS = 0
+	SUCCESS = 0x00,
+	FAILURE = 0x01,
+	UNSUPPORTED_ATTRIBUTE = 0x86
 };
 
 enum RequestType {
@@ -49,14 +51,18 @@ typedef struct {
 	unsigned short attributeNumber;
 } AttributeIdentifier;
 
+typedef int (*NetworkSender)(unsigned char type, unsigned char *buffer, int length);
+typedef int (*AttributeReader)(DataItem *item);
+
 typedef struct {
-	HeaderInfo header;
-	DataItem nodeID;
-} RegisterRequest;
+	AttributeIdentifier attr;
+	AttributeReader reader;
+	bool registered;
+} AttributeValue;
 
 class EMonCMS {
 	public:
-		EMonCMS();
+		EMonCMS(AttributeValue values[], int length, NetworkSender sender);
 		~EMonCMS();
 		bool isEMonCMSPacket(unsigned char type);
 		bool parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigned char *buffer, DataItem items[]);
@@ -64,11 +70,15 @@ class EMonCMS {
 		int attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer);
 		void attrIdentAsDataItems(AttributeIdentifier *ident, DataItem *attrItems);
 		unsigned short getNodeID();
+		bool hasAttribute(AttributeIdentifier attr);
 	protected:
 		unsigned short nodeID;
 		bool checkHeader(HeaderInfo *header, unsigned char size);
 		int getTypeSize(unsigned char type);
 		int dataItemToBuffer(DataItem *item, unsigned char *buffer);
+		AttributeValue *attrValues;
+		int attrValuesLength;
+		NetworkSender networkSender;
 };
 
 #endif

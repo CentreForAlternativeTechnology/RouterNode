@@ -8,6 +8,7 @@
 #include <string>
 #include <ostream>
 #include <iostream>
+#include <cstring>
 #define LOG(x) std::cout << (x)
 #ifndef F
 #define F(x) x

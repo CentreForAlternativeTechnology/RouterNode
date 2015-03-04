@@ -1,8 +1,11 @@
 #include "EMonCMS.h"
 #include "Debug.h"
 
-EMonCMS::EMonCMS() {
+EMonCMS::EMonCMS(AttributeValue values[], int length, NetworkSender sender) {
 	this->nodeID = 0;
+	this->attrValues = values;
+	this->attrValuesLength = length;
+	this->networkSender = sender;
 }
 
 EMonCMS::~EMonCMS() {
@@ -46,6 +49,18 @@ bool EMonCMS::checkHeader(HeaderInfo *header, unsigned char size) {
 	return header->dataCount == size;
 }
 
+bool EMonCMS::hasAttribute(AttributeIdentifier attr) {
+	for(int i = 0; i < this->attrValuesLength; i++) {
+		if(this->attrValues[i].attr.groupID == attr.groupID &&
+			this->attrValues[i].attr.groupID == attr.attributeID &&
+			this->attrValues[i].attr.groupID == attr.attributeNumber)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigned char *buffer, DataItem items[]) {
 	if(!isEMonCMSPacket(type)) {
 		return false;
@@ -74,6 +89,28 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 			} else {
 				this->nodeID = T_USHORT(items[0].item);
 				LOG(F("emonCMSNodeID = ")); LOG(this->nodeID); LOG(F("\n"));
+			}
+			break;
+		case 'P':
+			/* extract the attribute identifying information */
+			AttributeIdentifier ident;
+			ident.groupID = *(unsigned short *)(items[1].item);
+			ident.attributeID = *(unsigned short *)(items[2].item);
+			ident.attributeNumber = *(unsigned short *)(items[3].item);
+			
+			/* first do we have attribute, if not send back packet with error */
+			if(!this->hasAttribute(ident)) {
+				/* the buffer just contains the data items and we want to send the same
+				 * items back but with a different header with an error status */
+				 LOG("Error: Unknown attribute requested, sending error response\n");
+				 unsigned char sendBuffer[header->dataSize + sizeof(HeaderInfo)];
+				 memcpy(&(sendBuffer[sizeof(HeaderInfo)]), buffer, header->dataSize);
+				 ((HeaderInfo *)sendBuffer)->dataSize = header->dataSize;
+				 ((HeaderInfo *)sendBuffer)->dataCount = header->dataCount;
+				 ((HeaderInfo *)sendBuffer)->status = UNSUPPORTED_ATTRIBUTE;
+				 if(!this->networkSender('p', sendBuffer, header->dataSize + sizeof(HeaderInfo))) {
+					 LOG("Error: sending error response to attribute request\n");
+				 }
 			}
 			break;
 
