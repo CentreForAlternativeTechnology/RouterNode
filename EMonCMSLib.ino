@@ -20,6 +20,7 @@ EMonCMS *emon = NULL;
 unsigned char nodeID;
 unsigned long timeData = 0;
 unsigned long nodeIDRequestTime = 0;
+AttributeValue attrVal;
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	timeData = millis();
@@ -42,7 +43,6 @@ void setup() {
 	LOG(F("Connecting to mesh...\n"));
 	mesh.begin();
 
-	AttributeValue attrVal;
 	attrVal.attr.groupID = 10;
 	attrVal.attr.attributeID = 20;
 	attrVal.attr.attributeNumber = 40;
@@ -63,6 +63,18 @@ void loop() {
 		networkWriter('R', buffer, size);
 		nodeIDRequestTime = millis();
 		LOG(F("Sent a request for node ID\n"));
+	} else if(emon->getNodeID() > 0 && (millis() - nodeIDRequestTime) > NODEIDREQUESTTIMEOUT) {
+		DataItem regItems[4];
+		emon->attrIdentAsDataItems(&(attrVal.attr), regItems);
+		regItems[3].type = ULONG;
+		unsigned long def = 0;
+		regItems[3].item = &def;
+		int size = emon->attrSize(ATTR_REGISTER, regItems, 4);
+		unsigned char regBuffer[size];
+		emon->attrBuilder(ATTR_REGISTER, regItems, 4, regBuffer);
+		networkWriter('A', regBuffer, size);
+		nodeIDRequestTime = millis();
+		LOG(F("Sent attribute register request for time\n"));
 	}
 	
 	if(network.available()) {
