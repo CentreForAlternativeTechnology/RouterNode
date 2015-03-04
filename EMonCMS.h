@@ -17,16 +17,18 @@ enum dataTypes {
 	FLOAT = 10
 };
 
-enum status {
+enum Status {
 	SUCCESS = 0x00,
 	FAILURE = 0x01,
-	UNSUPPORTED_ATTRIBUTE = 0x86
+	UNSUPPORTED_ATTRIBUTE = 0x86,
+	INVALID_VALUE = 0x87
 };
 
 enum RequestType {
 	NODE_REGISTER,
 	ATTR_REGISTER,
-	ATTR_POST
+	ATTR_POST,
+	ATTR_FAILURE
 };
 
 typedef struct {
@@ -70,12 +72,13 @@ class EMonCMS {
 		int attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer);
 		void attrIdentAsDataItems(AttributeIdentifier *ident, DataItem *attrItems);
 		unsigned short getNodeID();
-		bool hasAttribute(AttributeIdentifier attr);
+		AttributeValue *getAttribute(AttributeIdentifier attr);
 	protected:
 		unsigned short nodeID;
 		bool checkHeader(HeaderInfo *header, unsigned char size);
 		int getTypeSize(unsigned char type);
 		int dataItemToBuffer(DataItem *item, unsigned char *buffer);
+		bool requestAttribute(HeaderInfo *header, DataItem items[]);
 		AttributeValue *attrValues;
 		int attrValuesLength;
 		NetworkSender networkSender;

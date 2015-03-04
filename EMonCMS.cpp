@@ -49,16 +49,65 @@ bool EMonCMS::checkHeader(HeaderInfo *header, unsigned char size) {
 	return header->dataCount == size;
 }
 
-bool EMonCMS::hasAttribute(AttributeIdentifier attr) {
+AttributeValue *EMonCMS::getAttribute(AttributeIdentifier attr) {
 	for(int i = 0; i < this->attrValuesLength; i++) {
 		if(this->attrValues[i].attr.groupID == attr.groupID &&
 			this->attrValues[i].attr.groupID == attr.attributeID &&
 			this->attrValues[i].attr.groupID == attr.attributeNumber)
 		{
-			return true;
+			&(this->attrValues[i]);
 		}
 	}
-	return false;
+	return NULL;
+}
+
+bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
+	/* extract the attribute identifying information */
+	AttributeIdentifier ident;
+	ident.groupID = *(unsigned short *)(items[1].item);
+	ident.attributeID = *(unsigned short *)(items[2].item);
+	ident.attributeNumber = *(unsigned short *)(items[3].item);
+	
+	Status status = SUCCESS;
+
+	/* first do we have attribute, if not send back packet with error */
+	AttributeValue *attrVal = this->getAttribute(ident);
+	DataItem item;
+	if(attrVal == NULL) {
+		status = UNSUPPORTED_ATTRIBUTE;
+	} else if(!attrVal->reader(&item)) {
+		status = INVALID_VALUE;
+	}
+
+	if(status != SUCCESS) {
+		int size = attrSize(ATTR_FAILURE, &(items[1]), 3);
+		unsigned char failureBuffer[size];
+		if(attrBuilder(ATTR_FAILURE, &(items[1]), 3, failureBuffer) != size) {
+			LOG(F("Error: could not build response request failure"));
+			return false;
+		} else {
+			((HeaderInfo *)failureBuffer)->status = status;
+			if(!this->networkSender('p', failureBuffer, size)) {
+				LOG(F("Error sending error response to attribute request\n"));
+			}
+		}
+	} else {
+		DataItem responseItems[4];
+		memcpy(responseItems, items, sizeof(DataItem) * 3);
+		responseItems[3].type = item.type;
+		responseItems[3].item = item.item;
+		int size = attrSize(ATTR_POST, responseItems, 4);
+		unsigned char responseBuffer[size];
+		if(attrBuilder(ATTR_POST, responseItems, 4, responseBuffer) != size) {
+			LOG(F("Error: could not build response request failure"));
+			return false;
+		} else {
+			if(!this->networkSender('p', responseBuffer, size)) {
+				LOG(F("Error sending success response to attribute request\n"));
+			}
+		}
+				
+	}
 }
 
 bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigned char *buffer, DataItem items[]) {
@@ -92,25 +141,9 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 			}
 			break;
 		case 'P':
-			/* extract the attribute identifying information */
-			AttributeIdentifier ident;
-			ident.groupID = *(unsigned short *)(items[1].item);
-			ident.attributeID = *(unsigned short *)(items[2].item);
-			ident.attributeNumber = *(unsigned short *)(items[3].item);
-			
-			/* first do we have attribute, if not send back packet with error */
-			if(!this->hasAttribute(ident)) {
-				/* the buffer just contains the data items and we want to send the same
-				 * items back but with a different header with an error status */
-				 LOG("Error: Unknown attribute requested, sending error response\n");
-				 unsigned char sendBuffer[header->dataSize + sizeof(HeaderInfo)];
-				 memcpy(&(sendBuffer[sizeof(HeaderInfo)]), buffer, header->dataSize);
-				 ((HeaderInfo *)sendBuffer)->dataSize = header->dataSize;
-				 ((HeaderInfo *)sendBuffer)->dataCount = header->dataCount;
-				 ((HeaderInfo *)sendBuffer)->status = UNSUPPORTED_ATTRIBUTE;
-				 if(!this->networkSender('p', sendBuffer, header->dataSize + sizeof(HeaderInfo))) {
-					 LOG("Error: sending error response to attribute request\n");
-				 }
+			if(!requestAttribute(header, items)) {
+				LOG("Error responding to attribute request\n");
+				return false;
 			}
 			break;
 
@@ -133,6 +166,8 @@ int EMonCMS::attrSize(RequestType type, DataItem *item, int length) {
 	}
 	switch(type) {
 		case ATTR_REGISTER:
+			/* fallthrough */
+		case ATTR_FAILURE:
 			/* fallthrough */
 		case ATTR_POST:
 			size += (sizeof(nodeID) + 1);
@@ -173,6 +208,8 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 	for(int i = 0; i < length; i++) {
 		header->dataSize += sizeof(items[i].type) + this->getTypeSize(items[i].type);
 	}
+	
+	DataItem nid;
 
 	int itemIndex = sizeof(HeaderInfo);
 	switch(type) {
@@ -186,7 +223,19 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 			header->dataSize += (sizeof(nodeID) + 1);
 			header->status = SUCCESS;
 			/* Add Node ID to packet */
-			DataItem nid;
+			nid.type = USHORT;
+			nid.item = &(this->nodeID);
+			itemIndex += dataItemToBuffer(&nid, &(buffer[itemIndex]));
+			break;
+		case ATTR_FAILURE:
+			if(length != 3) {
+				LOG(F("Wrong number of items passed to builder for failure\n"));
+				return 0;
+			}
+			header->dataCount = 4; /* NID, GID, AID, ATTRNUM */
+			header->dataSize += (sizeof(nodeID) + 1);
+			header->status = FAILURE; /* set custom error code later */
+			/* Add Node ID to packet */
 			nid.type = USHORT;
 			nid.item = &(this->nodeID);
 			itemIndex += dataItemToBuffer(&nid, &(buffer[itemIndex]));
