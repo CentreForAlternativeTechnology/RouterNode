@@ -203,6 +203,18 @@ void EMonCMS::attrIdentAsDataItems(AttributeIdentifier *ident, DataItem *attrIte
 	attrItems[2].item = &(ident->attributeNumber);
 }
 
+int EMonCMS::attrSender(RequestType type, DataItem *items, int length) {
+		int size = this->attrSize(type, items, length);
+		if(size == 0) {
+			return size;
+		}
+		unsigned char buffer[size];
+		if(this->attrBuilder(type, items, length, buffer) != size) {
+			return 0;
+		}
+		return this->networkSender(type, buffer, length);
+}
+
 int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer) {
 	/* Setup the header and input neccessary data */
 	HeaderInfo *header = (HeaderInfo *)buffer;

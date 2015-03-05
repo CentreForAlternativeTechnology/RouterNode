@@ -25,9 +25,9 @@ enum Status {
 };
 
 enum RequestType {
-	NODE_REGISTER,
-	ATTR_REGISTER,
-	ATTR_POST,
+	NODE_REGISTER = 'R',
+	ATTR_REGISTER = 'A',
+	ATTR_POST = 'P',
 	ATTR_FAILURE
 };
 
@@ -73,6 +73,7 @@ class EMonCMS {
 		void attrIdentAsDataItems(AttributeIdentifier *ident, DataItem *attrItems);
 		unsigned short getNodeID();
 		AttributeValue *getAttribute(AttributeIdentifier *attr);
+		int attrSender(RequestType type, DataItem *items, int length);
 	protected:
 		unsigned short nodeID;
 		bool checkHeader(HeaderInfo *header, unsigned char size);

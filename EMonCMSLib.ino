@@ -57,24 +57,24 @@ void loop() {
 	mesh.update();
 	/* check to see whether we have a node id */
 	if(emon->getNodeID() == 0 && (millis() - nodeIDRequestTime) > NODEIDREQUESTTIMEOUT) {
-		int size = emon->attrSize(NODE_REGISTER, NULL, 0);
-		unsigned char buffer[size];
-		emon->attrBuilder(NODE_REGISTER, NULL, 0, buffer);
-		networkWriter('R', buffer, size);
+		if(emon->attrSender(NODE_REGISTER, NULL, 0) > 0) {
+			LOG(F("Sent a request for node ID\n"));
+		} else {
+			LOG(F("Failed to send node ID request\n"));
+		}
 		nodeIDRequestTime = millis();
-		LOG(F("Sent a request for node ID\n"));
 	} else if(emon->getNodeID() > 0 && (millis() - nodeIDRequestTime) > NODEIDREQUESTTIMEOUT) {
 		DataItem regItems[4];
 		emon->attrIdentAsDataItems(&(attrVal.attr), regItems);
-		regItems[3].type = ULONG;
 		unsigned long def = 0;
+		regItems[3].type = ULONG;
 		regItems[3].item = &def;
-		int size = emon->attrSize(ATTR_REGISTER, regItems, 4);
-		unsigned char regBuffer[size];
-		emon->attrBuilder(ATTR_REGISTER, regItems, 4, regBuffer);
-		networkWriter('A', regBuffer, size);
+		if(emon->attrSender(ATTR_REGISTER, regItems, 4) > 0) {
+			LOG(F("Sent attribute register request for time\n"));
+		} else {
+			LOG(F("Error sending attribute registration request\n"));
+		}
 		nodeIDRequestTime = millis();
-		LOG(F("Sent attribute register request for time\n"));
 	}
 	
 	if(network.available()) {
