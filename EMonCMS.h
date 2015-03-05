@@ -97,28 +97,110 @@ typedef struct {
 
 class EMonCMS {
 	public:
+		/**
+		 * @param values list of attributes which can be read from this node
+		 * @param length length of attribute list
+		 * @param sender NetworkSender for sending responses to incoming requests
+		 * @param nodeID defaults to 0, node id for emoncms
+		 **/
 		EMonCMS(AttributeValue values[], int length, NetworkSender sender, unsigned short nodeID = 0);
 		~EMonCMS();
 		/* methods for receiving packets */
+		/**
+		 * Checks the incoming type to see if it is an accepted type
+		 * @param type type of incoming packet to check
+		 * @return true if it is an emon cms packet type
+		 **/
 		bool isEMonCMSPacket(unsigned char type);
+		/**
+		 * Parses an incoming emon cms packet 
+		 * @param header incomiing emon cms header
+		 * @param type the type of the incoming packet
+		 * @param buffer the raw unparsed data items
+		 * @param items a list of data items the size of count in the header
+		 * @return returns true if the function succeeded
+		 **/
 		bool parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigned char *buffer, DataItem items[]);
 		/* methods for sending packets */
+		/**
+		 * Calculates the buffer size for the buffer passed to attrBuilder
+		 * @param type type of request to be sent
+		 * @param item list of data items
+		 * @param length length of list of data items
+		 * @return the size of the buffer
+		 **/
 		int attrSize(RequestType type, DataItem *item, int length);
+		/**
+		 * Creates a packet into the given buffer containing the given data items.
+		 * Items for each request type:
+		 * 	NODE_REGISTER: None
+		 * 	ATTR_REGISTER: Group ID, Attribute ID, Attribute Number, Attribure default
+		 * 	ATTR_POST: Group ID, Attribute ID, Attribute Number, Attribute Value
+		 * 	ATTR_FAILURE: Group ID, Attribute ID, Attribute Number
+		 * @param type the type of the request to send
+		 * @param items list of data items to send
+		 * @param length length of list of data items to send
+		 * @param buffer buffer to write packet into, including header
+		 * @return the size of the buffer on success
+		 **/
 		int attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer);
+		/**
+		 * Wraps attrBuilder and sends requests through the NetworkSender
+		 * @param type type of request to send
+		 * @param items list of items to attach
+		 * @param length length of list of items to attach
+		 * @return the size of the sent data on success
+		 **/
 		int attrSender(RequestType type, DataItem *items, int length);
+		/**
+		 * Converts and AttributeIdentifier to a list of DataItems.
+		 * @param ident the incoming Attribute Identifier
+		 * @param attrItems an array of DataItems of length 3
+		 **/
 		void attrIdentAsDataItems(AttributeIdentifier *ident, DataItem *attrItems);
 		
 		/* getters and setters */
+		/**
+		 * Returns the assigned node ID
+		 * @return the node ID form emon cms
+		 **/
 		unsigned short getNodeID();
+		/**
+		 * Gets the data about an attribute including registration status
+		 * and the function to get it from an Attribute Identifier.
+		 * @param attr Attribute Identifier to get the data for.
+		 * @return NULL on not found, otherwise Attribute Value struct.
+		 **/
 		AttributeValue *getAttribute(AttributeIdentifier *attr);
 	protected:
-		unsigned short nodeID;
-		AttributeValue *attrValues;
-		int attrValuesLength;
-		NetworkSender networkSender;
+		unsigned short nodeID; /** the EMonCMS node ID **/
+		AttributeValue *attrValues; /** list of registered attributes on this node **/
+		int attrValuesLength; /** length of list of registered attributes on this node **/
+		NetworkSender networkSender; /** function to send data to the radios **/
+		/**
+		 * Compared the data count in the header to the size
+		 **/
 		bool checkHeader(HeaderInfo *header, unsigned char size);
+		/**
+		 * Gets the size of the item in a DataItem
+		 * @param type the type of item
+		 * @return the size of the given type
+		 **/
 		int getTypeSize(unsigned char type);
+		/**
+		 * Transfers a data item into a char array
+		 * @param item item to put in char array
+		 * @param buffer buffer to transfer to
+		 * @return size of transferred item on success
+		 **/
 		int dataItemToBuffer(DataItem *item, unsigned char *buffer);
+		/**
+		 * Function to respond to a request for an attribute.
+		 * Sends through the NetworkSender specified in constructor.
+		 * @param header header of incoming request
+		 * @param items item list containing attribute identifier
+		 * @return true if building and sending succeeded
+		 **/
 		bool requestAttribute(HeaderInfo *header, DataItem items[]);
 };
 
