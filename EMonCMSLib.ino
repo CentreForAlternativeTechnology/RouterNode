@@ -1,4 +1,8 @@
 #define MAX_PACKET_SIZE 512
+#define RESETEEPROM 0
+#define RF24NODEIDEEPROM 1
+#define EMONNODEIDEEPROM1 2
+#define EMONNODEIDEEPROM2 3
 
 #include <RF24.h>
 #include <RF24Network.h>
@@ -18,6 +22,7 @@ RF24Mesh mesh(radio, network);
 EMonCMS *emon = NULL;
 
 unsigned char nodeID;
+unsigned short eMonNodeID = 0;
 unsigned long timeData = 0;
 unsigned long nodeIDRequestTime = 0;
 AttributeValue attrVal;
@@ -26,6 +31,7 @@ int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	timeData = millis();
 	item->type = ULONG;
 	item->item = &timeData;
+	return 0;
 }
 
 int networkWriter(unsigned char type, unsigned char *buffer, int length) {
@@ -37,7 +43,13 @@ void setup() {
 #ifdef DEBUG
 	Serial.begin(115200);
 #endif
-	nodeID = EEPROM.read(0);
+	if(EEPROM.read(RESETEEPROM)) {
+		for(int i = 0; i < 10; i++) {
+			EEPROM.write(i, 0);
+		}
+	}
+	nodeID = EEPROM.read(RF24NODEIDEEPROM);
+	eMonNodeID == ((EEPROM.read(EMONNODEIDEEPROM1) & 0xFF) << 8) | (EEPROM.read(EMONNODEIDEEPROM2) & 0xFF);
 	LOG(F("Node id is ")); LOG(nodeID); LOG(F("\n"));
 	mesh.setNodeID(nodeID);
 	LOG(F("Connecting to mesh...\n"));
@@ -49,7 +61,7 @@ void setup() {
 	attrVal.reader = timeAttributeReader;
 	attrVal.registered = false;
 
-	emon = new EMonCMS(&attrVal, 1, networkWriter);
+	emon = new EMonCMS(&attrVal, 1, networkWriter, eMonNodeID);
 
 }
 
@@ -75,6 +87,12 @@ void loop() {
 			LOG(F("Error sending attribute registration request\n"));
 		}
 		nodeIDRequestTime = millis();
+	}
+
+	if(eMonNodeID != emon->getNodeID() && emon->getNodeID() != 0) {
+		eMonNodeID = emon->getNodeID();
+		EEPROM.write(EMONNODEIDEEPROM1, (eMonNodeID >> 8) & 0xFF);
+		EEPROM.write(EMONNODEIDEEPROM2, (eMonNodeID & 0xFF));
 	}
 	
 	if(network.available()) {

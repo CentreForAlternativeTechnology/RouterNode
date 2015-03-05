@@ -1,11 +1,11 @@
 #include "EMonCMS.h"
 #include "Debug.h"
 
-EMonCMS::EMonCMS(AttributeValue values[], int length, NetworkSender sender) {
-	this->nodeID = 0;
+EMonCMS::EMonCMS(AttributeValue values[], int length, NetworkSender sender, unsigned short nodeID) {
 	this->attrValues = values;
 	this->attrValuesLength = length;
 	this->networkSender = sender;
+	this->nodeID = nodeID;
 }
 
 EMonCMS::~EMonCMS() {
