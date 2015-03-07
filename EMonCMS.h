@@ -3,7 +3,14 @@
 
 #include "Debug.h"
 
+#ifdef LINUX
+#include <time.h>
+#include <cstring>
+#endif
+
 #define T_USHORT(x) (*((unsigned short *)(x)))
+
+#define REGISTERREQUESTTIMEOUT 5000
 
 /**
  * The is an enum to specify data formats to send over the
@@ -193,10 +200,16 @@ class EMonCMS {
 		 * @return NULL on not found, otherwise Attribute Value struct.
 		 **/
 		AttributeValue *getAttribute(AttributeIdentifier *attr);
+		/**
+		 * called periodically to ensure all attributes are registered and
+		 * the node ID is too
+		 **/
+		void registerNode();
 	protected:
 		unsigned short nodeID; /** the EMonCMS node ID **/
 		AttributeValue *attrValues; /** list of registered attributes on this node **/
 		int attrValuesLength; /** length of list of registered attributes on this node **/
+		unsigned long lastRegisterRequest; /** time of last sent register request **/
 		NetworkSender networkSender; /** function to send data to the radios **/
 		AttributeRegistered attrRegistered; /** attribute registered callback **/
 		NodeIDRegistered nodeRegistered; /** node registered callback **/
@@ -226,6 +239,11 @@ class EMonCMS {
 		 * @return true if building and sending succeeded
 		 **/
 		bool requestAttribute(HeaderInfo *header, DataItem items[]);
+		
+		#ifdef LINUX
+		time_t start_time;
+		unsigned long millis();
+		#endif
 };
 
 #endif

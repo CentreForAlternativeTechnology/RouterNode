@@ -15,6 +15,10 @@ EMonCMS::EMonCMS(AttributeValue values[],
 	this->nodeID = nodeID;
 	this->attrRegistered = attrRegistered;
 	this->nodeRegistered = nodeRegistered;
+	this->lastRegisterRequest = 0;
+	#ifdef LINUX
+	this->start_time = time(0);
+	#endif
 }
 
 EMonCMS::~EMonCMS() {
@@ -56,6 +60,36 @@ int EMonCMS::getTypeSize(unsigned char type) {
 
 bool EMonCMS::checkHeader(HeaderInfo *header, unsigned char size) {
 	return header->dataCount == size;
+}
+
+void EMonCMS::registerNode() {
+	if((millis() - this->lastRegisterRequest) > REGISTERREQUESTTIMEOUT) {
+		if(this->nodeID == 0) {
+			if(this->attrSender(NODE_REGISTER, NULL, 0) > 0) {
+				LOG(F("Sent a request for node ID\n"));
+			} else {
+				LOG(F("Failed to send node ID request\n"));
+				this->lastRegisterRequest = millis();
+			}
+		} else {
+			for(int i = 0; i < attrValuesLength; i++) {
+				if(!this->attrValues[i].registered) {
+					DataItem regItems[4];
+					this->attrIdentAsDataItems(&(this->attrValues[i].attr), regItems);
+					if(!this->attrValues[i].reader(&(this->attrValues[i].attr), &regItems[4])) {
+						LOG(F("Failed to register attribute\n"));
+					} else {			
+						if(this->attrSender(ATTR_REGISTER, regItems, 4) > 0) {
+							LOG(F("Sent attribute register request for time\n"));
+						} else {
+							LOG(F("Error sending attribute registration request\n"));
+						}
+					}
+				}
+			}
+			this->lastRegisterRequest = millis();
+		}
+	}	
 }
 
 AttributeValue *EMonCMS::getAttribute(AttributeIdentifier *attr) {
@@ -307,3 +341,9 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 	}
 	return itemIndex;
 }
+
+#ifdef LINUX
+unsigned long EMonCMS::millis() {
+	return (unsigned long)difftime(time(0), start_time);
+}
+#endif

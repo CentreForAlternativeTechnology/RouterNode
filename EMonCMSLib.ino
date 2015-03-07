@@ -1,19 +1,17 @@
+#include <RF24.h>
+#include <RF24Network.h>
+#include <RF24Mesh.h>
+#include <SPI.h>
+#include <EEPROM.h>
+#include "EMonCMS.h"
+#include "Debug.h"
+
 #define MAX_PACKET_SIZE 512
 #define RESETEEPROM 0
 #define RF24NODEIDEEPROM 1
 #define EMONNODEIDEEPROM1 2
 #define EMONNODEIDEEPROM2 3
 #define EMONATTRREGISTERDEEPROM 4
-#define NODEIDREQUESTTIMEOUT 5000
-
-#include <RF24.h>
-#include <RF24Network.h>
-#include <RF24Mesh.h>
-#include <SPI.h>
-#include <EEPROM.h>
-
-#include "EMonCMS.h"
-#include "Debug.h"
 
 RF24 radio(7,8);
 RF24Network network(radio);
@@ -64,7 +62,7 @@ void setup() {
 	/* if it's unset, assign a random one */
 	if(nodeID == 0) {
 		nodeID = random(220, 255);
-		EEPROM.save(RF24NODEIDEEPROM, nodeID);
+		EEPROM.write(RF24NODEIDEEPROM, nodeID);
 	}
 	
 	LOG(F("Node id is ")); LOG(nodeID); LOG(F("\n"));
@@ -87,31 +85,7 @@ void setup() {
 void loop() {
 	mesh.update();
 	/* check to see whether we have a node id */
-	if(emon->getNodeID() == 0 && (millis() - nodeIDRequestTime) > NODEIDREQUESTTIMEOUT) {
-		/* send a request for a node ID */
-		if(emon->attrSender(NODE_REGISTER, NULL, 0) > 0) {
-			LOG(F("Sent a request for node ID\n"));
-		} else {
-			LOG(F("Failed to send node ID request\n"));
-		}
-		nodeIDRequestTime = millis();
-	} else if(emon->getNodeID() > 0 &&
-			(millis() - nodeIDRequestTime) > NODEIDREQUESTTIMEOUT &&
-			emon->getAttribute(&(attrVal.attr))->registered == 0)
-	{
-		/* send a request to register attribute */
-		DataItem regItems[4];
-		emon->attrIdentAsDataItems(&(attrVal.attr), regItems);
-		unsigned long def = 0;
-		regItems[3].type = ULONG;
-		regItems[3].item = &def;
-		if(emon->attrSender(ATTR_REGISTER, regItems, 4) > 0) {
-			LOG(F("Sent attribute register request for time\n"));
-		} else {
-			LOG(F("Error sending attribute registration request\n"));
-		}
-		nodeIDRequestTime = millis();
-	}
+	emon->registerNode();
 	
 	if(network.available()) {
 		RF24NetworkHeader header;
