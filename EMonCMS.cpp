@@ -1,11 +1,20 @@
 #include "EMonCMS.h"
 #include "Debug.h"
 
-EMonCMS::EMonCMS(AttributeValue values[], int length, NetworkSender sender, unsigned short nodeID) {
+EMonCMS::EMonCMS(AttributeValue values[],
+			int length, 
+			NetworkSender sender,
+			AttributeRegistered attrRegistered,
+			NodeIDRegistered nodeRegistered,
+			unsigned short nodeID
+			)
+{
 	this->attrValues = values;
 	this->attrValuesLength = length;
 	this->networkSender = sender;
 	this->nodeID = nodeID;
+	this->attrRegistered = attrRegistered;
+	this->nodeRegistered = nodeRegistered;
 }
 
 EMonCMS::~EMonCMS() {
@@ -136,10 +145,13 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 				break;
 			}
 			if(header->status != SUCCESS) {
-				LOG(F("Server did not return valid status code\n"));
+				LOG(F("Server did not return valid status code (node register)\n"));
 			} else {
 				this->nodeID = T_USHORT(items[0].item);
 				LOG(F("emonCMSNodeID = ")); LOG(this->nodeID); LOG(F("\n"));
+				if(this->nodeRegistered != NULL) {
+					this->nodeRegistered(this->nodeID);
+				}
 			}
 			break;
 		case 'P':
@@ -148,7 +160,25 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 				return false;
 			}
 			break;
-
+		case 'a':
+			if(header->status != SUCCESS) {
+				LOG(F("Server did not return success for attribute register\n"));
+			} else {
+				AttributeIdentifier ident;
+				ident.groupID = *(unsigned short *)(items[1].item);
+				ident.attributeID = *(unsigned short *)(items[2].item);
+				ident.attributeNumber = *(unsigned short *)(items[3].item);
+				LOG(F("Attribute registration response success\n"));
+				if(getAttribute(&ident) != NULL) {
+					getAttribute(&ident)->registered = 1;
+					if(this->attrRegistered != NULL) {
+						this->attrRegistered(&ident);
+					}
+				} else {
+					LOG(F("Attribute not found in list\n"));
+				}
+			}
+			break;
 		default:
 			LOG(F("Unknown header type ")); LOG(type); LOG(F("\n"));
 			return false;
@@ -233,6 +263,10 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 				LOG(F("Wrong number of items passed to builder for post/register\n"));
 				return 0;
 			}
+			if(this->nodeID == 0) {
+				LOG(F("Cannot register/post attribute, no node iD\n"));
+				return 0;
+			}
 			header->dataCount = 5; /* NID, GID, AID, ATTRNUM, ATTRVAL/ATTRDEFAULT */
 			header->dataSize += (sizeof(nodeID) + 1);
 			header->status = SUCCESS;
@@ -244,6 +278,10 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 		case ATTR_FAILURE:
 			if(length != 3) {
 				LOG(F("Wrong number of items passed to builder for failure\n"));
+				return 0;
+			}
+			if(this->nodeID == 0) {
+				LOG(F("Cannot post attribute failure, no node iD\n"));
 				return 0;
 			}
 			header->dataCount = 4; /* NID, GID, AID, ATTRNUM */

@@ -1,6 +1,8 @@
 #ifndef __EMONCMS_H__
 #define __EMONCMS_H__
 
+#include "Debug.h"
+
 #define T_USHORT(x) (*((unsigned short *)(x)))
 
 /**
@@ -86,6 +88,17 @@ typedef int (*NetworkSender)(unsigned char type, unsigned char *buffer, int leng
 typedef int (*AttributeReader)(AttributeIdentifier *attr, DataItem *item);
 
 /**
+ * User implemented event which is triggered when the node ID is registered
+ **/
+typedef void (*NodeIDRegistered)(unsigned short emonNodeID);
+
+/**
+ * User implemented event which is triggered when a attribute is successfully registered.
+ * @param attr the attribute identifier for the registered attribute
+ **/
+typedef void (*AttributeRegistered)(AttributeIdentifier *attr);
+
+/**
  * Contains the information necessary to identifier, register and read
  * an attribute value.
  **/
@@ -101,9 +114,17 @@ class EMonCMS {
 		 * @param values list of attributes which can be read from this node
 		 * @param length length of attribute list
 		 * @param sender NetworkSender for sending responses to incoming requests
+		 * @param attrRegistered attribute registered callback
+		 * @param node registered callback
 		 * @param nodeID defaults to 0, node id for emoncms
 		 **/
-		EMonCMS(AttributeValue values[], int length, NetworkSender sender, unsigned short nodeID = 0);
+		EMonCMS(AttributeValue values[],
+			int length, 
+			NetworkSender sender,
+			AttributeRegistered attrRegistered = NULL,
+			NodeIDRegistered nodeRegistered = NULL,
+			unsigned short nodeID = 0
+			);
 		~EMonCMS();
 		/* methods for receiving packets */
 		/**
@@ -177,6 +198,9 @@ class EMonCMS {
 		AttributeValue *attrValues; /** list of registered attributes on this node **/
 		int attrValuesLength; /** length of list of registered attributes on this node **/
 		NetworkSender networkSender; /** function to send data to the radios **/
+		AttributeRegistered attrRegistered; /** attribute registered callback **/
+		NodeIDRegistered nodeRegistered; /** node registered callback **/
+		
 		/**
 		 * Compared the data count in the header to the size
 		 **/
