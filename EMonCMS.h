@@ -6,6 +6,8 @@
 #ifdef LINUX
 #include <time.h>
 #include <cstring>
+#else
+#include "Arduino.h"
 #endif
 
 #define T_USHORT(x) (*((unsigned short *)(x)))
