@@ -22,4 +22,6 @@
 #define LOG(x)
 #endif
 
+int freeMemory();
+
 #endif

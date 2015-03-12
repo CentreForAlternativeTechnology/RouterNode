@@ -22,7 +22,7 @@ RF24Mesh mesh(radio, network);
 EMonCMS *emon = NULL;
 
 unsigned char nodeID;
-unsigned long timeData = 0;
+uint64_t timeData = 0;
 AttributeValue attrVal;
 unsigned char buffer[BUFFER_SIZE];
 
@@ -37,6 +37,13 @@ int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 
 int networkWriter(unsigned char type, unsigned char *buffer, int length) {
 	RF24NetworkHeader header(0, type);
+	char sbuff[7];
+	for(int i = 0; i < length; i++) {
+		sprintf(sbuff, "0x%x, ", buffer[i]);
+		LOG(sbuff);
+	}
+	LOG(F("\r\n"));
+	
 	return network.write(header, buffer, length) ? length : 0;
 }
 
@@ -110,8 +117,11 @@ void loop() {
 					//	LOG(F("Failed to read entire EMonCMS data packet\r\n"));
 					//	LOG(F("Received ")); LOG(read); LOG(F(" bytes\r\n"));
 					//} else {
-					if(((HeaderInfo *)buffer)->dataSize != read - sizeof(HeaderInfo)) {
+					if(((HeaderInfo *)buffer)->dataSize > (read - sizeof(HeaderInfo))) {
 						LOG(F("Size mismatch for incoming packet\r\n"));
+						LOG(F("Received ")); LOG(read - sizeof(HeaderInfo));
+						LOG(F(" expected ")); LOG(((HeaderInfo *)buffer)->dataSize);
+						LOG(F("\r\n"));
 					} else {
 						LOG(F("Parsing incoming packet...\r\n"));
 						if(!emon->parseEMonCMSPacket(((HeaderInfo *)buffer), header.type, &(buffer[sizeof(HeaderInfo)]), items)) {

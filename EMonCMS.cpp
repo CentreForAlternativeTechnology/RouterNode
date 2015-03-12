@@ -48,11 +48,11 @@ int EMonCMS::getTypeSize(unsigned char type) {
 		case SHORT: case USHORT:
 			return sizeof(short);
 		case INT: case UINT:
-			return sizeof(int);
+			return sizeof(uint32_t);
 		case FLOAT:
 			return sizeof(float);
 		case LONG: case ULONG:
-			return sizeof(long);
+			return sizeof(uint64_t);
 		default:
 			return 0;
 	}
@@ -80,7 +80,7 @@ void EMonCMS::registerNode() {
 				if(!this->attrValues[i].registered) {
 					DataItem regItems[4];
 					this->attrIdentAsDataItems(&(this->attrValues[i].attr), regItems);
-					if(this->attrValues[i].reader(&(this->attrValues[i].attr), &(regItems[4]))) {
+					if(this->attrValues[i].reader(&(this->attrValues[i].attr), &(regItems[3]))) {
 						LOG(F("registerNode: Failed to register attribute\r\n"));
 					} else {
 						LOG(F("registerNode: registering attribute ")); LOG(i); LOG(F("\r\n"));
