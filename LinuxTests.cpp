@@ -14,12 +14,14 @@
 		std::cout << #x ": FAIL\n"; \
 	} \
 	total++;
-	
+
+#define TMP_BUFFER_SIZE 128
 int globalFakeReading = 234234;
-unsigned char tmpBuffer[128];
+int bufferSize = TMP_BUFFER_SIZE;
+unsigned char tmpBuffer[TMP_BUFFER_SIZE];
 
 bool testNodeRegisterRequest() {
-	EMonCMS emon(NULL, 0, NULL);
+	EMonCMS emon(NULL, 0, NULL, NULL, NULL, 2);
 	int regSize = 0;
 	if((regSize = emon.attrSize(NODE_REGISTER, NULL, 0)) != 4) {
 		std::cout << "ERR: Size of register should be 4, is " << regSize << "\n";
@@ -37,7 +39,7 @@ bool testNodeRegisterRequest() {
 }
 
 bool testAttributeRegisterRequest() {
-	EMonCMS emon(NULL, 0, NULL);
+	EMonCMS emon(NULL, 0, NULL, NULL, NULL, 2);
 	int regSize = 0;
 	DataItem regItems[4];
 	AttributeIdentifier regIdent;
@@ -62,7 +64,7 @@ bool testAttributeRegisterRequest() {
 		return false;
 	}
 
-	unsigned char regCmp[] = { 0x15, 0x0, 0x0, 0x5, 0x4, 0x0, 0x0, 0x4, 0x53, 0x64,
+	unsigned char regCmp[] = { 0x15, 0x0, 0x0, 0x5, 0x4, 0x2, 0x0, 0x4, 0x53, 0x64,
 					0x4, 0x21, 0x23, 0x4, 0x21, 0x3, 0x9, 0x8, 0xe, 0x3, 0x0, 0x0, 0x0, 0x0, 0x0 };
 	if(memcmp(regBuffer, regCmp, regSize) != 0) {
 		std::cout << "ERR: attr register output does not match expected output";
@@ -73,7 +75,7 @@ bool testAttributeRegisterRequest() {
 }
 
 bool testAttributePostRequest() {
-	EMonCMS emon(NULL, 0, NULL);
+	EMonCMS emon(NULL, 0, NULL, NULL, NULL, 2);
 	DataItem postItems[4];
 	AttributeIdentifier postIdent;
 	postIdent.groupID = 0x6453;
@@ -96,7 +98,7 @@ bool testAttributePostRequest() {
 		return false;
 	}
 
-	unsigned char postCmp[] = { 0x15, 0x0, 0x0, 0x5, 0x4, 0x0, 0x0, 0x4, 0x53, 0x64, 0x4, 0x21, 0x23, 0x4,
+	unsigned char postCmp[] = { 0x15, 0x0, 0x0, 0x5, 0x4, 0x2, 0x0, 0x4, 0x53, 0x64, 0x4, 0x21, 0x23, 0x4,
 				0x21, 0x3, 0x9, 0xa, 0xd, 0x50, 0x7a, 0x0, 0x0, 0x0, 0x0 };
 	if(memcmp(postBuffer, postCmp, postSize) != 0) {
 		std::cout << "ERR: attr post output does not match expected output";
@@ -137,6 +139,7 @@ int fakeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 
 int fakeNetworkSender(unsigned char type, unsigned char *buffer, int length) {
 	memcpy(tmpBuffer, buffer, length);
+	bufferSize = length;
 }
 
 bool testAttributePostResponse() {
@@ -148,7 +151,7 @@ bool testAttributePostResponse() {
 	attrVal.reader = fakeAttributeReader;
 	attrVal.registered = false;
 	
-	EMonCMS emon(&attrVal, 1, fakeNetworkSender);
+	EMonCMS emon(&attrVal, 1, fakeNetworkSender, NULL, NULL, 2);
 	
 	/* Create a fake request for the specified attribute */
 	HeaderInfo header;
@@ -162,13 +165,44 @@ bool testAttributePostResponse() {
 		return false;
 	}
 	
-	unsigned char cmpBuffer[] = { 0x11, 0x0, 0x0, 0x5, 0x4, 0x0, 0x0, 0x4, 0x0, 0x0,
+	unsigned char cmpBuffer[] = { 0x11, 0x0, 0x0, 0x5, 0x4, 0x2, 0x0, 0x4, 0x0, 0x0,
 		0x4, 0xa, 0x0, 0x4, 0x14, 0x0, 0x5, 0xfa, 0x92, 0x3, 0x0 };
 	if(memcmp(cmpBuffer, tmpBuffer, 21) != 0) {
 		LOG("Error: expected output of testing fetch attribute request fails\n");
 		return false;
 	}
 	
+	
+	return true;
+}
+
+bool testBuildAttributeRegister() {
+	AttributeValue attrVal;
+	attrVal.attr.groupID = 10;
+	attrVal.attr.attributeID = 20;
+	attrVal.attr.attributeNumber = 40;
+	attrVal.reader = fakeAttributeReader;
+	attrVal.registered = false;
+	
+	EMonCMS emon(&attrVal, 1, fakeNetworkSender, NULL, NULL, 2);
+	
+	DataItem regItems[4];
+	emon.attrIdentAsDataItems(&(attrVal.attr), regItems);
+	
+	fakeAttributeReader(&(attrVal.attr), &(regItems[3]));
+	
+	emon.attrSender(ATTR_REGISTER, regItems, 4);
+	
+	unsigned char cmpBuffer[] = { 0x11, 0x0, 0x0, 0x5, 0x4, 0x2, 0x0, 0x4,
+		0xa, 0x0, 0x4, 0x14, 0x0, 0x4, 0x28, 0x0, 0x5, 0xfa, 0x92, 0x3, 0x0 };
+	
+	if(memcmp(tmpBuffer, cmpBuffer, bufferSize) != 0) {
+		for(int i = 0; i < bufferSize; i++) {
+			printf("0x%x, ", tmpBuffer[i]);
+		}
+		printf("\n");
+		return false;
+	}
 	
 	return true;
 }
@@ -182,6 +216,7 @@ int main(int argc, char *args[]) {
 	TEST(testAttributePostRequest);
 	TEST(testSetNodeID);
 	TEST(testAttributePostResponse);
+	TEST(testBuildAttributeRegister);
 	
 	std::cout << passCount << " pass of " << total << "\n";
 	

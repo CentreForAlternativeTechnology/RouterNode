@@ -13,6 +13,8 @@
 #define EMONNODEIDEEPROM2 3
 #define EMONATTRREGISTERDEEPROM 4
 
+#define BUFFER_SIZE 40
+
 RF24 radio(7,8);
 RF24Network network(radio);
 RF24Mesh mesh(radio, network);
@@ -21,13 +23,15 @@ EMonCMS *emon = NULL;
 
 unsigned char nodeID;
 unsigned long timeData = 0;
-unsigned long nodeIDRequestTime = 0;
 AttributeValue attrVal;
+unsigned char buffer[BUFFER_SIZE];
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+	LOG(F("timeAttributeReader: enter\r\n"));
 	timeData = millis();
 	item->type = ULONG;
 	item->item = &timeData;
+	LOG(F("timeAttributeReader: done\r\n"));
 	return 0;
 }
 
@@ -65,9 +69,9 @@ void setup() {
 		EEPROM.write(RF24NODEIDEEPROM, nodeID);
 	}
 	
-	LOG(F("Node id is ")); LOG(nodeID); LOG(F("\n"));
+	LOG(F("Node id is ")); LOG(nodeID); LOG(F("\r\n"));
 	mesh.setNodeID(nodeID);
-	LOG(F("Connecting to mesh...\n"));
+	LOG(F("Connecting to mesh...\r\n"));
 	mesh.begin();
 
 	/* setup the time reading attribute */
@@ -92,32 +96,40 @@ void loop() {
 		network.peek(header);
 
 		if(emon->isEMonCMSPacket(header.type)) {
-			HeaderInfo emonCMSHeader;
+			//HeaderInfo emonCMSHeader;
 			/* Setup an EMonCMS packet */
-			if(network.read(header, &emonCMSHeader, 4) == 4) {
-				if(emonCMSHeader.dataSize < MAX_PACKET_SIZE) {
+			int read = 0;
+			if((read = network.read(header, buffer, BUFFER_SIZE)) > sizeof(HeaderInfo)) {
+				if(((HeaderInfo *)buffer)->dataSize < MAX_PACKET_SIZE) {
 					/* Setup buffers for storing the read data and parsing
 					 *  it to a reable format.
 					 */
-					unsigned char buffer[emonCMSHeader.dataSize];
-					DataItem items[emonCMSHeader.dataCount];
-					if(network.read(header, buffer, emonCMSHeader.dataSize) != emonCMSHeader.dataSize) {
-						LOG(F("Failed to read entire EMonCMS data packet\n"));
+					//unsigned char buffer[emonCMSHeader.dataSize];
+					DataItem items[((HeaderInfo *)buffer)->dataCount];
+					//if((read = network.read(header, buffer, emonCMSHeader.dataSize)) == emonCMSHeader.dataSize) {
+					//	LOG(F("Failed to read entire EMonCMS data packet\r\n"));
+					//	LOG(F("Received ")); LOG(read); LOG(F(" bytes\r\n"));
+					//} else {
+					if(((HeaderInfo *)buffer)->dataSize != read - sizeof(HeaderInfo)) {
+						LOG(F("Size mismatch for incoming packet\r\n"));
 					} else {
-						if(!emon->parseEMonCMSPacket(&emonCMSHeader, header.type, buffer, items)) {
-							LOG(F("Failed to parse EMonCMS packet\n"));
+						LOG(F("Parsing incoming packet...\r\n"));
+						if(!emon->parseEMonCMSPacket(((HeaderInfo *)buffer), header.type, &(buffer[sizeof(HeaderInfo)]), items)) {
+							LOG(F("Failed to parse EMonCMS packet\r\n"));
 						}
 					}
+					//}
 				} else {
-					LOG(F("Received packet too large, discarding\n"));
+					LOG(F("Received packet too large, discarding\r\n"));
 					network.read(header,0,0); 
 				}
 			} else {
-				LOG(F("Failed to read header bytes"));
+				LOG(F("Failed to read header bytes\r\n"));
+				LOG(F("Received ")); LOG(read); LOG(F(" bytes\r\n"));
 			}
 		} else {
 			network.read(header,0,0); 
-			LOG(F("Unknown packet type, discarding\n"));
+			LOG(F("Unknown packet type, discarding\r\n"));
 		}
 	}
 }

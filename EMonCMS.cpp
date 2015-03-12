@@ -64,31 +64,39 @@ bool EMonCMS::checkHeader(HeaderInfo *header, unsigned char size) {
 
 void EMonCMS::registerNode() {
 	if((millis() - this->lastRegisterRequest) > REGISTERREQUESTTIMEOUT) {
+		LOG(F("registerNode: enter\r\n"));
 		if(this->nodeID == 0) {
+			LOG(F("registerNode: registering node\r\n"));
 			if(this->attrSender(NODE_REGISTER, NULL, 0) > 0) {
-				LOG(F("Sent a request for node ID\n"));
+				LOG(F("Sent a request for node ID\r\n"));
 			} else {
-				LOG(F("Failed to send node ID request\n"));
-				this->lastRegisterRequest = millis();
+				LOG(F("Failed to send node ID request\r\n"));
 			}
+			LOG(F("registerNode: request sent\r\n"));
+			this->lastRegisterRequest = millis();
 		} else {
 			for(int i = 0; i < attrValuesLength; i++) {
+				LOG(F("registerNode: attr: ")); LOG(i); LOG(F("\r\n"));
 				if(!this->attrValues[i].registered) {
 					DataItem regItems[4];
 					this->attrIdentAsDataItems(&(this->attrValues[i].attr), regItems);
-					if(!this->attrValues[i].reader(&(this->attrValues[i].attr), &regItems[4])) {
-						LOG(F("Failed to register attribute\n"));
-					} else {			
+					if(this->attrValues[i].reader(&(this->attrValues[i].attr), &(regItems[4]))) {
+						LOG(F("registerNode: Failed to register attribute\r\n"));
+					} else {
+						LOG(F("registerNode: registering attribute ")); LOG(i); LOG(F("\r\n"));
 						if(this->attrSender(ATTR_REGISTER, regItems, 4) > 0) {
-							LOG(F("Sent attribute register request for time\n"));
+							LOG(F("registerNode: Sent attribute register request\r\n"));
 						} else {
-							LOG(F("Error sending attribute registration request\n"));
+							LOG(F("registerNode: Error sending attribute registration request\r\n"));
 						}
 					}
+					LOG(F("registerNode: attribute registered\r\n"));
 				}
 			}
+			LOG(F("registerNode: setting last time\r\n"));
 			this->lastRegisterRequest = millis();
 		}
+		LOG(F("registerNode: done\r\n"));
 	}	
 }
 
@@ -131,7 +139,7 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 		} else {
 			((HeaderInfo *)failureBuffer)->status = status;
 			if(!this->networkSender('p', failureBuffer, size)) {
-				LOG(F("Error sending error response to attribute request\n"));
+				LOG(F("Error sending error response to attribute request\r\n"));
 			}
 		}
 	} else {
@@ -146,7 +154,7 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 			return false;
 		} else {
 			if(!this->networkSender('p', responseBuffer, size)) {
-				LOG(F("Error sending success response to attribute request\n"));
+				LOG(F("Error sending success response to attribute request\r\n"));
 			}
 		}
 				
@@ -156,7 +164,9 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 }
 
 bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigned char *buffer, DataItem items[]) {
+	LOG(F("parseEmonCMSPacket: enter\r\n"));
 	if(!isEMonCMSPacket(type)) {
+		LOG(F("parseEmonCMSPacket: not emon cms packet\r\n"));
 		return false;
 	}
 
@@ -179,10 +189,10 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 				break;
 			}
 			if(header->status != SUCCESS) {
-				LOG(F("Server did not return valid status code (node register)\n"));
+				LOG(F("Server did not return valid status code (node register)\r\n"));
 			} else {
 				this->nodeID = T_USHORT(items[0].item);
-				LOG(F("emonCMSNodeID = ")); LOG(this->nodeID); LOG(F("\n"));
+				LOG(F("emonCMSNodeID = ")); LOG(this->nodeID); LOG(F("\r\n"));
 				if(this->nodeRegistered != NULL) {
 					this->nodeRegistered(this->nodeID);
 				}
@@ -190,33 +200,35 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 			break;
 		case 'P':
 			if(!requestAttribute(header, items)) {
-				LOG(F("Error responding to attribute request\n"));
+				LOG(F("Error responding to attribute request\r\n"));
 				return false;
 			}
 			break;
 		case 'a':
 			if(header->status != SUCCESS) {
-				LOG(F("Server did not return success for attribute register\n"));
+				LOG(F("Server did not return success for attribute register\r\n"));
 			} else {
 				AttributeIdentifier ident;
 				ident.groupID = *(unsigned short *)(items[1].item);
 				ident.attributeID = *(unsigned short *)(items[2].item);
 				ident.attributeNumber = *(unsigned short *)(items[3].item);
-				LOG(F("Attribute registration response success\n"));
+				LOG(F("Attribute registration response success\r\n"));
 				if(getAttribute(&ident) != NULL) {
 					getAttribute(&ident)->registered = 1;
 					if(this->attrRegistered != NULL) {
 						this->attrRegistered(&ident);
 					}
 				} else {
-					LOG(F("Attribute not found in list\n"));
+					LOG(F("Attribute not found in list\r\n"));
 				}
 			}
 			break;
 		default:
-			LOG(F("Unknown header type ")); LOG(type); LOG(F("\n"));
+			LOG(F("Unknown header type ")); LOG(type); LOG(F("\r\n"));
 			return false;
 	}
+	
+	LOG(F("parseEmonCMSPacket: exit\r\n"));
 
 	return true;
 }
@@ -242,7 +254,7 @@ int EMonCMS::attrSize(RequestType type, DataItem *item, int length) {
 			/* nothing */
 			break;
 		default:
-			LOG(F("Requested size of unknown\n"));
+			LOG(F("Requested size of unknown\r\n"));
 			break;
 	}
 	return size;
@@ -268,18 +280,23 @@ void EMonCMS::attrIdentAsDataItems(AttributeIdentifier *ident, DataItem *attrIte
 }
 
 int EMonCMS::attrSender(RequestType type, DataItem *items, int length) {
+		LOG(F("attrSender: enter\r\n"));
 		int size = this->attrSize(type, items, length);
 		if(size == 0) {
+			LOG(F("attrSender: attrSize 0\r\n"));
 			return size;
 		}
 		unsigned char buffer[size];
 		if(this->attrBuilder(type, items, length, buffer) != size) {
+			LOG(F("attrSender: attrBuilder size mismatch\r\n"));
 			return 0;
 		}
-		return this->networkSender(type, buffer, length);
+		LOG(F("attrSender: exit\r\n"));
+		return this->networkSender(type, buffer, size);
 }
 
 int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer) {
+	LOG(F("attrBuilder: enter\r\n"));
 	/* Setup the header and input neccessary data */
 	HeaderInfo *header = (HeaderInfo *)buffer;
 	header->dataSize = 0;
@@ -294,11 +311,11 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 		case ATTR_REGISTER:
 		case ATTR_POST:
 			if(length != 4) {
-				LOG(F("Wrong number of items passed to builder for post/register\n"));
+				LOG(F("Wrong number of items passed to builder for post/register\r\n"));
 				return 0;
 			}
 			if(this->nodeID == 0) {
-				LOG(F("Cannot register/post attribute, no node iD\n"));
+				LOG(F("Cannot register/post attribute, no node iD\r\n"));
 				return 0;
 			}
 			header->dataCount = 5; /* NID, GID, AID, ATTRNUM, ATTRVAL/ATTRDEFAULT */
@@ -311,11 +328,11 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 			break;
 		case ATTR_FAILURE:
 			if(length != 3) {
-				LOG(F("Wrong number of items passed to builder for failure\n"));
+				LOG(F("Wrong number of items passed to builder for failure\r\n"));
 				return 0;
 			}
 			if(this->nodeID == 0) {
-				LOG(F("Cannot post attribute failure, no node iD\n"));
+				LOG(F("Cannot post attribute failure, no node iD\r\n"));
 				return 0;
 			}
 			header->dataCount = 4; /* NID, GID, AID, ATTRNUM */
@@ -332,13 +349,14 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 			header->dataSize = 0;
 			break;
 		default:
-			LOG(F("Requested build of unknown\n"));
+			LOG(F("Requested build of unknown\r\n"));
 			return 0;
 	}
 
 	for(int i = 0; i < length; i++) {
 		itemIndex += dataItemToBuffer(&(items[i]), &(buffer[itemIndex]));
 	}
+	LOG(F("attrBuilder: exit\r\n"));
 	return itemIndex;
 }
 
