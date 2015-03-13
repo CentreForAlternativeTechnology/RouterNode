@@ -36,15 +36,27 @@ int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 }
 
 int networkWriter(unsigned char type, unsigned char *buffer, int length) {
-	RF24NetworkHeader header(0, type);
+	if(!mesh.write(buffer, type, length)){
+      // If a write fails, check connectivity to the mesh network
+      if( mesh.checkConnection() ){
+        //refresh the network address
+        mesh.renewAddress(); 
+        if(!mesh.write(buffer, type, length)){
+        	LOG(F("networkWriter: failed\r\n"));
+        	return 0;
+        }
+      }
+    }
+#ifdef DEBUG
 	char sbuff[7];
 	for(int i = 0; i < length; i++) {
 		sprintf(sbuff, "0x%x, ", buffer[i]);
 		LOG(sbuff);
 	}
 	LOG(F("\r\n"));
+#endif
 	
-	return network.write(header, buffer, length) ? length : 0;
+	return length;
 }
 
 void nodeIDRegistered(unsigned short emonNodeID) {
