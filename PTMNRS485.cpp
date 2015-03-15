@@ -32,14 +32,9 @@ void PTMNRS485::requestPressure() {
 
 short PTMNRS485::parseRequestPressure() {
 	unsigned char buffer[7];
-	Serial.print("Reading... ");
 	for(int i = 0; i < 7; i++) {
 		buffer[i] = this->sensorSerial->read();
-		char b[6];
-		sprintf(b, "0x%x, ", buffer[i]);
-		Serial.print(b);
 	}
-	Serial.println();
 	unsigned short rcrc = (buffer[6] << 8) | (buffer[5] & 0xff);
 	unsigned short acrc = calcCRC16(buffer, 5);
 	short value = (buffer[3] << 8) | buffer[4];
@@ -59,6 +54,7 @@ void PTMNRS485::update() {
 				if(value != 0) {
 					this->reading = value;
 				}
+				this->mode = PTM_IDLE;
 			}
 			break;
 	}

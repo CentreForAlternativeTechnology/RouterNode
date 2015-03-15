@@ -72,9 +72,9 @@ typedef struct {
  * Attributes are identified by the 3 values in this structure.
  **/
 typedef struct {
-	unsigned short groupID;
-	unsigned short attributeID;
-	unsigned short attributeNumber;
+	uint16_t groupID;
+	uint16_t attributeID;
+	uint16_t attributeNumber;
 } AttributeIdentifier;
 
 /**
@@ -207,6 +207,13 @@ class EMonCMS {
 		 * the node ID is too
 		 **/
 		void registerNode();
+		/**
+		 * Compares 2 attribute identifiers
+		 * @param a first attribute to compare
+		 * @param b second attribute to compare
+		 * @return 0 if they are the same
+		 */
+		int compareAttribute(AttributeIdentifier *a, AttributeIdentifier *b);
 	protected:
 		unsigned short nodeID; /** the EMonCMS node ID **/
 		AttributeValue *attrValues; /** list of registered attributes on this node **/

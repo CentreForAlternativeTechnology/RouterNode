@@ -58,6 +58,14 @@ int EMonCMS::getTypeSize(unsigned char type) {
 	}
 }
 
+int EMonCMS::compareAttribute(AttributeIdentifier *a, AttributeIdentifier *b) {
+	if(a == NULL || b == NULL) {
+		return 1;
+	}
+
+	return (a->groupID == b->groupID && a->attributeID == b->attributeID && a->attributeNumber == b->attributeNumber) ? 0 : 1;
+}
+
 bool EMonCMS::checkHeader(HeaderInfo *header, unsigned char size) {
 	return header->dataCount == size;
 }
@@ -102,10 +110,7 @@ void EMonCMS::registerNode() {
 
 AttributeValue *EMonCMS::getAttribute(AttributeIdentifier *attr) {
 	for(int i = 0; i < this->attrValuesLength; i++) {
-		if(this->attrValues[i].attr.groupID == attr->groupID &&
-			this->attrValues[i].attr.attributeID == attr->attributeID &&
-			this->attrValues[i].attr.attributeNumber == attr->attributeNumber)
-		{
+		if(this->compareAttribute(&(this->attrValues[i].attr), attr) == 0) {
 			return &(this->attrValues[i]);
 		}
 	}
