@@ -3,17 +3,21 @@
 #include <RF24Mesh.h>
 #include <SPI.h>
 #include <EEPROM.h>
+#include <SoftwareSerial.h>
 #include "EMonCMS.h"
 #include "Debug.h"
+#include "PTMNRS485.h"
 
-#define MAX_PACKET_SIZE 512
+#define MAX_PACKET_SIZE 64
 #define RESETEEPROM 0
 #define RF24NODEIDEEPROM 1
 #define EMONNODEIDEEPROM1 2
 #define EMONNODEIDEEPROM2 3
 #define EMONATTRREGISTERDEEPROM 4
 
-#define BUFFER_SIZE 40
+#define RX_PIN 10
+#define TX_PIN 9
+#define EN_TX_PIN 6
 
 RF24 radio(7,8);
 RF24Network network(radio);
@@ -21,10 +25,12 @@ RF24Mesh mesh(radio, network);
 
 EMonCMS *emon = NULL;
 
+PTMNRS485 sensor(RX_PIN, TX_PIN, EN_TX_PIN);
+
 unsigned char nodeID;
 uint64_t timeData = 0;
 AttributeValue attrVal;
-unsigned char buffer[BUFFER_SIZE];
+unsigned char incoming_buffer[MAX_PACKET_SIZE];
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG(F("timeAttributeReader: enter\r\n"));
@@ -80,12 +86,17 @@ void setup() {
 			EEPROM.write(i, 0);
 		}
 	}
+
 	/* load RF24 node id from EEPROM */
 	nodeID = EEPROM.read(RF24NODEIDEEPROM);
 	/* if it's unset, assign a random one */
 	if(nodeID == 0) {
 		nodeID = random(220, 255);
 		EEPROM.write(RF24NODEIDEEPROM, nodeID);
+	}
+
+	while(true) {
+		sensor.update();
 	}
 	
 	LOG(F("Node id is ")); LOG(nodeID); LOG(F("\r\n"));
@@ -118,25 +129,29 @@ void loop() {
 			//HeaderInfo emonCMSHeader;
 			/* Setup an EMonCMS packet */
 			int read = 0;
-			if((read = network.read(header, buffer, BUFFER_SIZE)) > sizeof(HeaderInfo)) {
-				if(((HeaderInfo *)buffer)->dataSize < MAX_PACKET_SIZE) {
+			if((read = network.read(header, incoming_buffer, MAX_PACKET_SIZE)) > sizeof(HeaderInfo)) {
+				if(((HeaderInfo *)incoming_buffer)->dataSize < (MAX_PACKET_SIZE - sizeof(HeaderInfo))) {
 					/* Setup buffers for storing the read data and parsing
 					 *  it to a reable format.
 					 */
 					//unsigned char buffer[emonCMSHeader.dataSize];
-					DataItem items[((HeaderInfo *)buffer)->dataCount];
+					DataItem items[((HeaderInfo *)incoming_buffer)->dataCount];
 					//if((read = network.read(header, buffer, emonCMSHeader.dataSize)) == emonCMSHeader.dataSize) {
 					//	LOG(F("Failed to read entire EMonCMS data packet\r\n"));
 					//	LOG(F("Received ")); LOG(read); LOG(F(" bytes\r\n"));
 					//} else {
-					if(((HeaderInfo *)buffer)->dataSize > (read - sizeof(HeaderInfo))) {
+					if(((HeaderInfo *)incoming_buffer)->dataSize > (read - sizeof(HeaderInfo))) {
 						LOG(F("Size mismatch for incoming packet\r\n"));
 						LOG(F("Received ")); LOG(read - sizeof(HeaderInfo));
-						LOG(F(" expected ")); LOG(((HeaderInfo *)buffer)->dataSize);
+						LOG(F(" expected ")); LOG(((HeaderInfo *)incoming_buffer)->dataSize);
 						LOG(F("\r\n"));
 					} else {
 						LOG(F("Parsing incoming packet...\r\n"));
-						if(!emon->parseEMonCMSPacket(((HeaderInfo *)buffer), header.type, &(buffer[sizeof(HeaderInfo)]), items)) {
+						if(!emon->parseEMonCMSPacket(((HeaderInfo *)incoming_buffer),
+							header.type,
+							&(incoming_buffer[sizeof(HeaderInfo)]),
+							items))
+						{
 							LOG(F("Failed to parse EMonCMS packet\r\n"));
 						}
 					}
@@ -155,4 +170,5 @@ void loop() {
 		}
 	}
 }
+
 
