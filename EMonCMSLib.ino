@@ -48,8 +48,18 @@ int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 }
 
 int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+	LOG(F("pressureAttributeReader: enter\r\n"));
+	/*
+	if(!sensor.blockingRead()) {
+		LOG(F("pressureAttributeReader: Sensor read failed\r\n"));
+		return 1;
+	} else {
+		LOG(F("pressureAttributeReader: sensor read successfully\r\n"));
+	}
+	*/
 	item->type = USHORT;
 	item->item = sensor.getReadingPtr();
+	LOG(F("pressureAttributeReader: exit\r\n"));
 	return 0;
 }
 
@@ -94,6 +104,7 @@ void attributeRegistered(AttributeIdentifier *attr) {
 void setup() {
 #ifdef DEBUG
 	Serial.begin(115200);
+	EEPROM.write(RESETEEPROM, 1);
 #endif
 	/* if the EEPROM is anything but 0 then reset all fields */
 	if(EEPROM.read(RESETEEPROM)) {
@@ -109,8 +120,6 @@ void setup() {
 		nodeID = random(220, 255);
 		EEPROM.write(RF24NODEIDEEPROM, nodeID);
 	}
-
-	sensor.update();
 	
 	LOG(F("Node id is ")); LOG(nodeID); LOG(F("\r\n"));
 	mesh.setNodeID(nodeID);
@@ -122,22 +131,25 @@ void setup() {
 	attrVal[ATTR_TIME].attr.attributeID = 20;
 	attrVal[ATTR_TIME].attr.attributeNumber = 40;
 	attrVal[ATTR_TIME].reader = timeAttributeReader;
+	
 	attrVal[ATTR_PRESSURE].attr.groupID = 0x0403;
 	attrVal[ATTR_PRESSURE].attr.attributeID = 0x1010;
 	attrVal[ATTR_PRESSURE].attr.attributeNumber = 0x0;
 	attrVal[ATTR_PRESSURE].reader = pressureAttributeReader;
+	
 	for(int i = 0; i < NUM_ATTR; i++) {
 		attrVal[i].registered = EEPROM.read(ATTR_REGISTERED_START + i);
 	}
 
 	/* read the emoncms node id and init emonCMS */
+	LOG(F("Setting up emon lib... "));
 	unsigned short eMonNodeID = ((EEPROM.read(EMONNODEIDEEPROM1) & 0xFF) << 8) | (EEPROM.read(EMONNODEIDEEPROM2) & 0xFF);
 	emon = new EMonCMS(attrVal, NUM_ATTR, networkWriter, attributeRegistered, nodeIDRegistered, eMonNodeID);
+	LOG(F("done\r\n"));
 }
 
 void loop() {
 	mesh.update();
-	sensor.update();
 	/* check to see whether we have a node id */
 	emon->registerNode();
 	
