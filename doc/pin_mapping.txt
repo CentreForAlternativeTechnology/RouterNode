@@ -1,0 +1,15 @@
+Arduino Pin Mapping - Sensor Node
+Pin	Function
+3	RTC Enable
+4	RTC CLK
+5	RTC IO
+6	RTC CE
+7	Radio CS
+8	Radio CE
+9	Sensor TX Enable (Positive Enable)
+10	Sensor Enable (Positive Enable)
+11	Radio MOSI
+12	Radio MISO
+13	Radio SCK
+A0	Battery Level (1V1 Internal) [Vin - 12k -[SENSE]- 3.3k - GND
+A1	Programming Mode (Internal Pullup Enabled)
