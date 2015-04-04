@@ -48,6 +48,7 @@ enum RequestType {
 	NODE_REGISTER = 'R',
 	ATTR_REGISTER = 'A',
 	ATTR_POST = 'P',
+	ATTR_POST_RESPONSE = 'p',
 	ATTR_FAILURE
 };
 
@@ -214,6 +215,12 @@ class EMonCMS {
 		 * @return 0 if they are the same
 		 */
 		int compareAttribute(AttributeIdentifier *a, AttributeIdentifier *b);
+		/**
+		 * Reads an attribute value using it's reader and posts it.
+		 * @param ident identifier of attribute to post
+		 * @return the size of data sent on success
+		 */
+		int postAttribute(AttributeIdentifier *ident);
 	protected:
 		unsigned short nodeID; /** the EMonCMS node ID **/
 		AttributeValue *attrValues; /** list of registered attributes on this node **/

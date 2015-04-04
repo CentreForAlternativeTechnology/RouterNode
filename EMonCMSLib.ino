@@ -15,9 +15,15 @@
 #define EMONNODEIDEEPROM2 3
 #define ATTR_REGISTERED_START 4
 
-#define RX_PIN 10
-#define TX_PIN 9
-#define EN_TX_PIN 6
+#define RAND_COUNT 20
+
+#define EN_TX_PIN 9
+#define EN_PIN 10
+#define PROG_MODE_PIN  A1
+#define BATTERY_PIN A2
+#define RAND_PIN A7
+
+#define ATTR_POST_WAIT 2000
 
 RF24 radio(7,8);
 RF24Network network(radio);
@@ -25,7 +31,7 @@ RF24Mesh mesh(radio, network);
 
 EMonCMS *emon = NULL;
 
-PTMNRS485 sensor(RX_PIN, TX_PIN, EN_TX_PIN);
+PTMNRS485 sensor(EN_TX_PIN);
 
 enum ATTRS {
 	ATTR_TIME,
@@ -38,17 +44,18 @@ uint64_t timeData = 0;
 AttributeValue attrVal[NUM_ATTR];
 unsigned char incoming_buffer[MAX_PACKET_SIZE];
 
+unsigned long lastAttributePostTime = 0;
+
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG(F("timeAttributeReader: enter\r\n"));
 	timeData = millis();
 	item->type = ULONG;
 	item->item = &timeData;
 	LOG(F("timeAttributeReader: done\r\n"));
-	return 0;
+	return true;
 }
 
 int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
-	LOG(F("pressureAttributeReader: enter\r\n"));
 	/*
 	if(!sensor.blockingRead()) {
 		LOG(F("pressureAttributeReader: Sensor read failed\r\n"));
@@ -59,8 +66,7 @@ int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	*/
 	item->type = USHORT;
 	item->item = sensor.getReadingPtr();
-	LOG(F("pressureAttributeReader: exit\r\n"));
-	return 0;
+	return true;
 }
 
 int networkWriter(unsigned char type, unsigned char *buffer, int length) {
@@ -101,11 +107,56 @@ void attributeRegistered(AttributeIdentifier *attr) {
 	}
 }
 
+int getRand() {
+	int read = 0;
+	while(read == 0 || read == 1023) {
+		read = analogRead(A7);
+	}
+	return read;
+}
+
+int moreRand() {
+	int rand = 0;
+	for(int i = 0; i < RAND_COUNT; i++) {
+		rand += getRand();
+	}
+	return rand;
+}
+
+int randRange(int min, int max) {
+	int rand_max = RAND_COUNT * 1022;
+	int nr = max - min;
+	if(nr <= 0) {
+		return 0;
+	}
+	return ((int)((((float)moreRand())/((float)rand_max)) * ((float)(nr))) + min);
+}
+
+void programmingLoop() {
+	
+}
+
 void setup() {
+	analogReference(INTERNAL);
+	pinMode(PROG_MODE_PIN, INPUT_PULLUP);
+	pinMode(EN_PIN, OUTPUT);
+	/* Boot with peripheral disabled */
+	digitalWrite(EN_PIN, LOW);
+
+	if(!digitalRead(PROG_MODE_PIN)) {
+#ifdef DEBUG
+		EEPROM.write(RESETEEPROM, 1);
+#endif
+		Serial.begin(115200);
+		Serial.println("Programming Mode");
+		while(true) {
+			programmingLoop();
+		}
+	}
 #ifdef DEBUG
 	Serial.begin(115200);
-	EEPROM.write(RESETEEPROM, 1);
 #endif
+
 	/* if the EEPROM is anything but 0 then reset all fields */
 	if(EEPROM.read(RESETEEPROM)) {
 		for(int i = 0; i < 10; i++) {
@@ -117,7 +168,7 @@ void setup() {
 	nodeID = EEPROM.read(RF24NODEIDEEPROM);
 	/* if it's unset, assign a random one */
 	if(nodeID == 0) {
-		nodeID = random(220, 255);
+		nodeID = randRange(220, 255);
 		EEPROM.write(RF24NODEIDEEPROM, nodeID);
 	}
 	
@@ -152,6 +203,15 @@ void loop() {
 	mesh.update();
 	/* check to see whether we have a node id */
 	emon->registerNode();
+
+	if(millis() - lastAttributePostTime > ATTR_POST_WAIT) {
+		if(emon->postAttribute(&(attrVal[ATTR_TIME].attr)) > 0) {
+			LOG(F("Sent attribute post\r\n"));
+			lastAttributePostTime = millis();
+		} else {
+			LOG(F("Failed to post attribute\r\n"));
+		}
+	}
 	
 	if(network.available()) {
 		RF24NetworkHeader header;

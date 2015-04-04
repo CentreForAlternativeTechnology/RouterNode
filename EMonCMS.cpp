@@ -228,6 +228,9 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 				}
 			}
 			break;
+		case 'p':
+			/* this is a response to a post to the server no action has to be taken */
+			break;
 		default:
 			LOG(F("Unknown header type ")); LOG(type); LOG(F("\r\n"));
 			return false;
@@ -298,6 +301,29 @@ int EMonCMS::attrSender(RequestType type, DataItem *items, int length) {
 		}
 		LOG(F("attrSender: exit\r\n"));
 		return this->networkSender(type, buffer, size);
+}
+
+int EMonCMS::postAttribute(AttributeIdentifier *ident) {
+	/* first do we have attribute, if not send back packet with error */
+	AttributeValue *attrVal = this->getAttribute(ident);
+	DataItem item;
+
+	if(attrVal == NULL) {
+		LOG(F("Could not find attribute for posting\r\n"));
+		return 0;
+	}
+
+	if(!attrVal->reader(ident, &item)) {
+		LOG(F("Failed to read attribute value for posting\r\n"));
+		return 0;
+	}
+	
+	DataItem postItems[4];
+	attrIdentAsDataItems(ident, postItems);
+	
+	postItems[3].type = item.type;
+	postItems[3].item = item.item;
+	return this->attrSender(ATTR_POST, postItems, 4);
 }
 
 int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer) {
