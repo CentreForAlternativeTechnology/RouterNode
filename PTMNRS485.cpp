@@ -1,9 +1,8 @@
 #include "PTMNRS485.h"
 #include "Debug.h"
 
-PTMNRS485::PTMNRS485(unsigned short rxPin, unsigned short txPin, unsigned short txEnablePin) {
-	this->sensorSerial = new SoftwareSerial(rxPin, txPin);
-	this->sensorSerial->begin(PTMNRS485_BAUD);
+PTMNRS485::PTMNRS485(unsigned short txEnablePin) {
+	Serial.begin(PTMNRS485_BAUD);
 	this->txEnablePin = txEnablePin;
 	this->reading = 0;
 	this->mode = PTM_IDLE;
@@ -12,7 +11,7 @@ PTMNRS485::PTMNRS485(unsigned short rxPin, unsigned short txPin, unsigned short 
 }
 
 PTMNRS485::~PTMNRS485() {
-	delete(this->sensorSerial);
+
 }
 
 short PTMNRS485::getReading() {
@@ -58,7 +57,7 @@ void PTMNRS485::requestPressure() {
 short PTMNRS485::parseRequestPressure() {
 	unsigned char buffer[7];
 	for(int i = 0; i < 7; i++) {
-		buffer[i] = this->sensorSerial->read();
+		buffer[i] = Serial.read();
 	}
 	//unsigned short rcrc = (buffer[6] << 8) | (buffer[5] & 0xff);
 	//unsigned short acrc = calcCRC16(buffer, 5);
@@ -94,7 +93,7 @@ void PTMNRS485::update() {
 			this->setMode(PTM_WAITING);
 			break;
 		case PTM_WAITING:
-			if(this->sensorSerial->available() >= 7) {
+			if(Serial.available() >= 7) {
 				short value = this->parseRequestPressure();
 				if(value != 0) {
 					this->reading = value;
@@ -134,11 +133,11 @@ unsigned short PTMNRS485::calcCRC16(unsigned char *data, unsigned short count) {
 
 void PTMNRS485::transmitFrame(const uint8_t *frame, size_t length) {
 	LOG(F("transmitFrame: enter\r\n"));
-	while(this->sensorSerial->available()) { this->sensorSerial->read(); }
+	while(Serial.available()) { Serial.read(); }
 	LOG(F("transmitFrame: enabling transmit\r\n"));
 	digitalWrite(this->txEnablePin, HIGH);
 	delay(1);
-	this->sensorSerial->write(frame, length);
+	Serial.write(frame, length);
 	delay(1);
 	digitalWrite(this->txEnablePin, LOW);
 	LOG(F("transmitFrame: exit\r\n"));

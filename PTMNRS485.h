@@ -16,7 +16,7 @@ enum PTMNRS485_MODE {
 
 class PTMNRS485 {
 	public:
-		PTMNRS485(unsigned short txPin, unsigned short rxPin, unsigned short txEnablePin);
+		PTMNRS485(unsigned short txEnablePin);
 		~PTMNRS485();
 		void update();
 		bool blockingRead();
@@ -24,7 +24,6 @@ class PTMNRS485 {
 		short *getReadingPtr();
 	protected:
 		unsigned short txEnablePin;
-		SoftwareSerial *sensorSerial;
 		short reading;
 		PTMNRS485_MODE mode;
 		unsigned short calcCRC16(unsigned char *data, unsigned short count);
