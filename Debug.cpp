@@ -1,6 +1,7 @@
 #include "Debug.h"
 #ifndef LINUX
 #include "Arduino.h"
+#include "EMonCMS.h"
 #endif
 
 #ifdef DEBUG

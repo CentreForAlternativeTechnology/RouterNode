@@ -15,8 +15,9 @@
 #define F(x) x
 #endif
 #else
-#define LOG(x) Serial.print(x)
 #include "Arduino.h"
+#define LOG(x) Serial.print(x);
+#define DEBUG_INIT Serial.begin(115200)
 #endif
 
 #define FREEMEM() LOG(F("Free memory: ")); LOG(freeMemory()); LOG(F("\r\n"));

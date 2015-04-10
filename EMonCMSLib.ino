@@ -4,9 +4,9 @@
 #include <SPI.h>
 #include <EEPROM.h>
 #include <SoftwareSerial.h>
+#include <Wire.h>
 #include "EMonCMS.h"
 #include "Debug.h"
-#include "PTMNRS485.h"
 
 #define MAX_PACKET_SIZE 64
 #define RESETEEPROM 0
@@ -17,8 +17,8 @@
 
 #define RAND_COUNT 20
 
-#define EN_TX_PIN 9
-#define EN_PIN 10
+#define EN_PIN1 10
+#define EN_PIN2 9
 #define PROG_MODE_PIN  A1
 #define BATTERY_PIN A2
 #define RAND_PIN A7
@@ -31,8 +31,6 @@ RF24Mesh mesh(radio, network);
 
 EMonCMS *emon = NULL;
 
-PTMNRS485 sensor(EN_TX_PIN);
-
 enum ATTRS {
 	ATTR_TIME,
 	ATTR_PRESSURE,
@@ -43,30 +41,36 @@ unsigned char nodeID;
 uint64_t timeData = 0;
 AttributeValue attrVal[NUM_ATTR];
 unsigned char incoming_buffer[MAX_PACKET_SIZE];
+short sensorReading = 0;
 
 unsigned long lastAttributePostTime = 0;
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
-	LOG(F("timeAttributeReader: enter\r\n"));
+	LOG("timeAttributeReader: enter\r\n");
 	timeData = millis();
 	item->type = ULONG;
 	item->item = &timeData;
-	LOG(F("timeAttributeReader: done\r\n"));
+	LOG("timeAttributeReader: done\r\n");
 	return true;
 }
 
 int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
-	/*
-	if(!sensor.blockingRead()) {
-		LOG(F("pressureAttributeReader: Sensor read failed\r\n"));
-		return 1;
+	Wire.requestFrom(4, 2);
+	if(Wire.available()) {
+		uint8_t buffer[2];
+		for(int i = 0; i < 2; i++) {
+			buffer[i] = Wire.read();
+		}
+		
+		sensorReading = (buffer[1] << 8) | buffer[0];
+  		item->item = &sensorReading;
+		item->type = SHORT;
+		LOG(F("Pressure value read as ")); LOG(sensorReading); LOG(F("\r\n"));
+  		return true;
 	} else {
-		LOG(F("pressureAttributeReader: sensor read successfully\r\n"));
+		LOG("pressureAttributeReader: Sensor read failed\r\n");
+		return false;
 	}
-	*/
-	item->type = USHORT;
-	item->item = sensor.getReadingPtr();
-	return true;
 }
 
 int networkWriter(unsigned char type, unsigned char *buffer, int length) {
@@ -76,7 +80,7 @@ int networkWriter(unsigned char type, unsigned char *buffer, int length) {
         //refresh the network address
         mesh.renewAddress(); 
         if(!mesh.write(buffer, type, length)){
-        	LOG(F("networkWriter: failed\r\n"));
+        	LOG("networkWriter: failed\r\n");
         	return 0;
         }
       }
@@ -87,7 +91,7 @@ int networkWriter(unsigned char type, unsigned char *buffer, int length) {
 		sprintf(sbuff, "0x%x, ", buffer[i]);
 		LOG(sbuff);
 	}
-	LOG(F("\r\n"));
+	LOG("\r\n");
 #endif
 	
 	return length;
@@ -139,9 +143,11 @@ void programmingLoop() {
 void setup() {
 	analogReference(INTERNAL);
 	pinMode(PROG_MODE_PIN, INPUT_PULLUP);
-	pinMode(EN_PIN, OUTPUT);
+	pinMode(EN_PIN1, OUTPUT);
 	/* Boot with peripheral disabled */
-	digitalWrite(EN_PIN, LOW);
+	digitalWrite(EN_PIN1, LOW);
+
+	DEBUG_INIT;
 
 	if(!digitalRead(PROG_MODE_PIN)) {
 #ifdef DEBUG
@@ -153,9 +159,12 @@ void setup() {
 			programmingLoop();
 		}
 	}
-#ifdef DEBUG
-	Serial.begin(115200);
-#endif
+
+	LOG(F("Initialising sensor boards..."));
+	/* Initialise I2C and enable secondary board */
+	Wire.begin();
+	digitalWrite(EN_PIN1, HIGH);
+	LOG(F("done\r\n"));
 
 	/* if the EEPROM is anything but 0 then reset all fields */
 	if(EEPROM.read(RESETEEPROM)) {
@@ -168,12 +177,14 @@ void setup() {
 	nodeID = EEPROM.read(RF24NODEIDEEPROM);
 	/* if it's unset, assign a random one */
 	if(nodeID == 0) {
-		nodeID = randRange(220, 255);
+		nodeID = randRange(220, 248);
 		EEPROM.write(RF24NODEIDEEPROM, nodeID);
 	}
 	
 	LOG(F("Node id is ")); LOG(nodeID); LOG(F("\r\n"));
 	mesh.setNodeID(nodeID);
+	radio.begin();
+	radio.setPALevel(RF24_PA_HIGH);
 	LOG(F("Connecting to mesh...\r\n"));
 	mesh.begin();
 
@@ -204,8 +215,8 @@ void loop() {
 	/* check to see whether we have a node id */
 	emon->registerNode();
 
-	if(millis() - lastAttributePostTime > ATTR_POST_WAIT) {
-		if(emon->postAttribute(&(attrVal[ATTR_TIME].attr)) > 0) {
+	if(millis() - lastAttributePostTime > ATTR_POST_WAIT && attrVal[ATTR_PRESSURE].registered) {
+		if(emon->postAttribute(&(attrVal[ATTR_PRESSURE].attr)) > 0) {
 			LOG(F("Sent attribute post\r\n"));
 			lastAttributePostTime = millis();
 		} else {

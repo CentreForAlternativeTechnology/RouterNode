@@ -88,7 +88,7 @@ void EMonCMS::registerNode() {
 				if(!this->attrValues[i].registered) {
 					DataItem regItems[4];
 					this->attrIdentAsDataItems(&(this->attrValues[i].attr), regItems);
-					if(this->attrValues[i].reader(&(this->attrValues[i].attr), &(regItems[3]))) {
+					if(!this->attrValues[i].reader(&(this->attrValues[i].attr), &(regItems[3]))) {
 						LOG(F("registerNode: Failed to register attribute\r\n"));
 					} else {
 						LOG(F("registerNode: registering attribute ")); LOG(i); LOG(F("\r\n"));
