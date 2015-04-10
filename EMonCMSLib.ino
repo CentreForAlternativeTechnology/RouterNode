@@ -119,25 +119,29 @@ int getRand() {
 	return read;
 }
 
-int moreRand() {
-	int rand = 0;
-	for(int i = 0; i < RAND_COUNT; i++) {
-		rand += getRand();
+uint32_t altRand() {
+	uint32_t rand = 0;
+	for(int i = 0; i < 32; i++) {
+		rand |= (getRand() & 0x1) << i;
 	}
 	return rand;
 }
 
-int randRange(int min, int max) {
-	int rand_max = RAND_COUNT * 1022;
-	int nr = max - min;
-	if(nr <= 0) {
-		return 0;
+uint32_t moreRand() {
+	uint32_t rTable[4];
+	for(int i = 0; i < 4; i++) {
+		rTable[i] = altRand();
 	}
-	return ((int)((((float)moreRand())/((float)rand_max)) * ((float)(nr))) + min);
+	uint32_t rand = 0;
+
+	rand = rTable[0] ^ (rTable[0] << 11);
+	rTable[0] = rTable[1]; rTable[1] = rTable[2]; rTable[2] = rTable[3];
+	return rTable[3] = rTable[3] ^ (rTable[3] >> 19) ^ (rand ^ (rand >> 8));
 }
 
 void programmingLoop() {
-	
+	Serial.println(random(220, 249));
+	delay(100);
 }
 
 void setup() {
@@ -148,6 +152,8 @@ void setup() {
 	digitalWrite(EN_PIN1, LOW);
 
 	DEBUG_INIT;
+
+	randomSeed(moreRand());
 
 	if(!digitalRead(PROG_MODE_PIN)) {
 #ifdef DEBUG
@@ -177,7 +183,7 @@ void setup() {
 	nodeID = EEPROM.read(RF24NODEIDEEPROM);
 	/* if it's unset, assign a random one */
 	if(nodeID == 0) {
-		nodeID = randRange(220, 248);
+		nodeID = random(220, 248);
 		EEPROM.write(RF24NODEIDEEPROM, nodeID);
 	}
 	
