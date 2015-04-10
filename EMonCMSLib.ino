@@ -7,6 +7,7 @@
 #include <Wire.h>
 #include "EMonCMS.h"
 #include "Debug.h"
+#include "ARandom.h"
 
 #define MAX_PACKET_SIZE 64
 #define RESETEEPROM 0
@@ -111,34 +112,6 @@ void attributeRegistered(AttributeIdentifier *attr) {
 	}
 }
 
-int getRand() {
-	int read = 0;
-	while(read == 0 || read == 1023) {
-		read = analogRead(A7);
-	}
-	return read;
-}
-
-uint32_t altRand() {
-	uint32_t rand = 0;
-	for(int i = 0; i < 32; i++) {
-		rand |= (getRand() & 0x1) << i;
-	}
-	return rand;
-}
-
-uint32_t moreRand() {
-	uint32_t rTable[4];
-	for(int i = 0; i < 4; i++) {
-		rTable[i] = altRand();
-	}
-	uint32_t rand = 0;
-
-	rand = rTable[0] ^ (rTable[0] << 11);
-	rTable[0] = rTable[1]; rTable[1] = rTable[2]; rTable[2] = rTable[3];
-	return rTable[3] = rTable[3] ^ (rTable[3] >> 19) ^ (rand ^ (rand >> 8));
-}
-
 void programmingLoop() {
 	Serial.println(random(220, 249));
 	delay(100);
@@ -153,7 +126,7 @@ void setup() {
 
 	DEBUG_INIT;
 
-	randomSeed(moreRand());
+	randomSeed(arandom());
 
 	if(!digitalRead(PROG_MODE_PIN)) {
 #ifdef DEBUG
