@@ -7,6 +7,7 @@
 /* commands */
 /* layout is 1 byte command, 1 byte data length, then data */
 #define C_SETCLOCK 0x07
+#define C_GETCLOCK 0x06
 #define C_GETMEM 0x08
 
 class SerialEventHandler {

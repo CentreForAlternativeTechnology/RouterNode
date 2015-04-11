@@ -57,6 +57,19 @@ void SerialEventHandler::parseSerial() {
 			rtc->seconds(data_buffer[5]);
 			rtc->day((Time::Day)data_buffer[6]);
 			break;
+		case C_GETCLOCK:
+			commandBytes[1] = 7;
+			data_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 7);
+			data_buffer[0] = (uint8_t)(rtc->year() - 2000);
+			data_buffer[1] = rtc->month();
+			data_buffer[2] = rtc->date();
+			data_buffer[3] = rtc->hour();
+			data_buffer[4] = rtc->minutes();
+			data_buffer[5] = rtc->seconds();
+			data_buffer[6] = rtc->day();
+			Serial.write(commandBytes, (size_t)2);
+			Serial.write(data_buffer, 7);
+			break;
 		case C_GETMEM:
 			commandBytes[1] = (uint8_t)0x02;
 			Serial.write(commandBytes, (size_t)2);
