@@ -7,6 +7,7 @@
 #include "EMonCMS.h"
 #include "Debug.h"
 #include "ARandom.h"
+#include "SerialEventHandler.h"
 
 #define MAX_PACKET_SIZE 64 /* Maximum size of EMon packet */
 
@@ -29,6 +30,11 @@
 
 #define RADIO_CE_PIN 7
 #define RADIO_CSN_PIN 8
+
+/* Real-time clock pins */
+#define RTC_CLK 4
+#define RTC_DATA 5
+#define RTC_RST 6
 
 /* Time between posting attributes */
 #define ATTR_POST_WAIT 2000
@@ -57,6 +63,9 @@ uint64_t timeData = 0;
 
 /* Time in millis of last post sent time */
 unsigned long lastAttributePostTime = 0;
+
+/* Real-time clock */
+DS1302 rtc(RTC_RST, RTC_DATA, RTC_CLK);
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -124,15 +133,14 @@ void attributeRegistered(AttributeIdentifier *attr) {
 	}
 }
 
-void programmingLoop() {
-	unsigned char buffer[3];
-	if(Serial.available()) {
-		for(int i = 0; i < 2; i++) {
-			buffer[i] = buffer[i + 1];
-		}
-		buffer[2] = Serial.read();
+void programmingMode() {
+	Serial.begin(115200);
+	Serial.println("Programming Mode");
+	SerialEventHandler serialEvent(&rtc);
+	while(true) {
+		serialEvent.parseSerial();
 	}
-	
+	Serial.end();
 }
 
 void setup() {
@@ -147,14 +155,7 @@ void setup() {
 	randomSeed(arandom());
 
 	if(!digitalRead(PROG_MODE_PIN)) {
-#ifdef DEBUG
-		EEPROM.write(RESETEEPROM, 1);
-#endif
-		Serial.begin(115200);
-		Serial.println("Programming Mode");
-		while(true) {
-			programmingLoop();
-		}
+		programmingMode();
 	}
 
 	LOG(F("Initialising sensor boards..."));
