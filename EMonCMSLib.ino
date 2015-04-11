@@ -8,36 +8,7 @@
 #include "Debug.h"
 #include "ARandom.h"
 #include "SerialEventHandler.h"
-
-#define MAX_PACKET_SIZE 64 /* Maximum size of EMon packet */
-
-/* EEPROM Addresses */
-#define RESETEEPROM 0 /* if set to anything over than 0, resets EEPROM. */
-#define RF24NODEIDEEPROM 1 /* RF24 NodeID, 0-255 */
-#define EMONNODEIDEEPROM1 2 /* unsigned short emon cms node id, LSB */
-#define EMONNODEIDEEPROM2 3 /* unsigned short emon cms node id, MSB */
-#define ATTR_REGISTERED_START 4 /* start of storage for attributes registered */
-
-/* Enable pins on communication connector */
-#define EN_PIN1 10
-#define EN_PIN2 9
-
-/* Pin when dragged low goes into config mode */
-#define PROG_MODE_PIN  A1
-
-/* Connected to 3.7v battery via resitive divider [Vin - 12k -[SENSE]- 3.3k - GND] */
-#define BATTERY_PIN A2
-
-#define RADIO_CE_PIN 7
-#define RADIO_CSN_PIN 8
-
-/* Real-time clock pins */
-#define RTC_CLK 4
-#define RTC_DATA 5
-#define RTC_RST 6
-
-/* Time between posting attributes */
-#define ATTR_POST_WAIT 2000
+#include "Definitions.h"
 
 /* Radio and communication related definitions */
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
@@ -85,12 +56,14 @@ int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 		}
 		
 		sensorReading = (buffer[1] << 8) | buffer[0];
-  		item->item = &sensorReading;
-		item->type = SHORT;
+		if(item != NULL) {
+  			item->item = &sensorReading;
+			item->type = SHORT;
+		}
 		LOG(F("pressureAttributeReader: value read as ")); LOG(sensorReading); LOG(F("\r\n"));
   		return true;
 	} else {
-		LOG("pressureAttributeReader: Sensor read failed\r\n");
+		LOG(F("pressureAttributeReader: Sensor read failed\r\n"));
 		return false;
 	}
 }
@@ -140,33 +113,19 @@ void programmingMode() {
 	while(true) {
 		serialEvent.parseSerial();
 	}
-	Serial.end();
 }
 
 void setup() {
 	analogReference(INTERNAL);
 	pinMode(PROG_MODE_PIN, INPUT_PULLUP);
 	pinMode(EN_PIN1, OUTPUT);
-	/* Boot with peripheral disabled */
 	digitalWrite(EN_PIN1, LOW);
-
-	DEBUG_INIT;
 
 	randomSeed(arandom());
 
-	if(!digitalRead(PROG_MODE_PIN)) {
-		programmingMode();
-	}
-
-	LOG(F("Initialising sensor boards..."));
-	/* Initialise I2C and enable secondary board */
-	Wire.begin();
-	digitalWrite(EN_PIN1, HIGH);
-	LOG(F("done\r\n"));
-
 	/* if the EEPROM is anything but 0 then reset all fields */
 	if(EEPROM.read(RESETEEPROM)) {
-		for(int i = 0; i < 10; i++) {
+		for(int i = 0; i < 1024; i++) {
 			EEPROM.write(i, 0);
 		}
 	}
@@ -178,6 +137,12 @@ void setup() {
 		 */
 		EEPROM.write(RF24NODEIDEEPROM, random(220, 248));
 	}
+
+	if(!digitalRead(PROG_MODE_PIN)) {
+		programmingMode();
+	} else {
+		DEBUG_INIT;
+	}
 	
 	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
 	mesh.setNodeID(EEPROM.read(RF24NODEIDEEPROM));
@@ -185,6 +150,10 @@ void setup() {
 	radio.setPALevel(RF24_PA_HIGH);
 	LOG(F("Connecting to mesh...\r\n"));
 	mesh.begin();
+
+	/* Initialise I2C and enable secondary board */
+	Wire.begin();
+	digitalWrite(EN_PIN1, HIGH);
 
 	/* setup the time reading attribute */
 	attrVal[ATTR_TIME].attr.groupID = 10;

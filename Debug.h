@@ -1,7 +1,8 @@
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
 
-#define DEBUG
+#include "Definitions.h"
+
 #ifdef DEBUG
 
 #ifdef LINUX
@@ -24,6 +25,7 @@
 
 #else
 #define LOG(x)
+#define DEBUG_INIT
 #endif
 
 int freeMemory();

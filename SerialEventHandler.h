@@ -11,6 +11,7 @@
 #define C_GETMEM 0x08
 #define C_GETEEPROM 0x09
 #define C_SETEEPROM 0x10
+#define C_GETPRESSURE 0x16
 
 class SerialEventHandler {
 public:
