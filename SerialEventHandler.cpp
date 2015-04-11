@@ -104,7 +104,6 @@ void SerialEventHandler::parseSerial() {
 					Serial.write(commandBytes, (size_t)2);
 					sendShort(*(short *)(item.item));
 				}
-				digitalWrite(EN_PIN1, LOW);
 				break;
 			case C_GETEEPROM:
 				if(commandBytes[1] != 4) {
