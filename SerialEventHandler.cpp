@@ -1,6 +1,9 @@
 #include "Arduino.h"
 #include "SerialEventHandler.h"
 #include "DS1302.h"
+#include <EEPROM.h>
+
+#define ASHORT(x) (((uint8_t *)(&(x)))[1] | (((uint8_t *)(&(x)))[0] << 8))
 
 int SerialEventHandler::freeRam() {
 	extern int __heap_start, *__brkval; 
@@ -17,10 +20,10 @@ SerialEventHandler::~SerialEventHandler() {
 	//nothing
 }
 
-uint8_t *SerialEventHandler::readBytes(uint8_t size) {
+uint8_t *SerialEventHandler::readBytes(uint8_t size, uint8_t extra_space) {
 	uint8_t *data_buffer = NULL;
 	if(size > 0) {
-		data_buffer = (uint8_t *)malloc(sizeof(uint8_t) * size);
+		data_buffer = (uint8_t *)malloc(sizeof(uint8_t) * (size + extra_space));
 		Serial.readBytes((char *)data_buffer, (size_t)size);
 	}
 	return data_buffer;
@@ -76,6 +79,30 @@ void SerialEventHandler::parseSerial() {
 			tmp_int = freeRam();
 			sendInt(tmp_int);
 			break;
+		case C_GETEEPROM:
+			if(commandBytes[1] != 4) {
+				break;
+			}
+			data_buffer = readBytes(commandBytes[1]);
+			commandBytes[1] = ASHORT(data_buffer[2]) * 2 + 4;
+			Serial.write(commandBytes, (size_t)2);
+			Serial.write(data_buffer, 4);
+			for(int i = ASHORT(data_buffer[0]); i < ASHORT(data_buffer[2]); i++) {
+				if(i < 1024) {
+					sendInt((int)(EEPROM.read(i)));
+				} else {
+					sendInt(0);
+				}
+			}
+			break;
+		case C_SETEEPROM:
+			if(commandBytes[1] != 4) {
+				break;
+			}
+			data_buffer = readBytes(commandBytes[1]);
+			EEPROM.write(ASHORT(data_buffer[0]), (uint8_t)(ASHORT(data_buffer[2])));
+			break;
+		
 		}
 		if(data_buffer != NULL) {
 			free(data_buffer);

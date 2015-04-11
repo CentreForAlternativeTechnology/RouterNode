@@ -9,6 +9,8 @@
 #define C_SETCLOCK 0x07
 #define C_GETCLOCK 0x06
 #define C_GETMEM 0x08
+#define C_GETEEPROM 0x09
+#define C_SETEEPROM 0x10
 
 class SerialEventHandler {
 public:
@@ -17,7 +19,7 @@ public:
 	void parseSerial();
 	int freeRam();
 private:
-	uint8_t *readBytes(uint8_t size);
+	uint8_t *readBytes(uint8_t size, uint8_t extra_space = 0);
 	DS1302 *rtc;
 };
 #endif
