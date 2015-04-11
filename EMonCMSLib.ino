@@ -3,47 +3,59 @@
 #include <RF24Mesh.h>
 #include <SPI.h>
 #include <EEPROM.h>
-#include <SoftwareSerial.h>
 #include <Wire.h>
 #include "EMonCMS.h"
 #include "Debug.h"
 #include "ARandom.h"
 
-#define MAX_PACKET_SIZE 64
-#define RESETEEPROM 0
-#define RF24NODEIDEEPROM 1
-#define EMONNODEIDEEPROM1 2
-#define EMONNODEIDEEPROM2 3
-#define ATTR_REGISTERED_START 4
+#define MAX_PACKET_SIZE 64 /* Maximum size of EMon packet */
 
-#define RAND_COUNT 20
+/* EEPROM Addresses */
+#define RESETEEPROM 0 /* if set to anything over than 0, resets EEPROM. */
+#define RF24NODEIDEEPROM 1 /* RF24 NodeID, 0-255 */
+#define EMONNODEIDEEPROM1 2 /* unsigned short emon cms node id, LSB */
+#define EMONNODEIDEEPROM2 3 /* unsigned short emon cms node id, MSB */
+#define ATTR_REGISTERED_START 4 /* start of storage for attributes registered */
 
+/* Enable pins on communication connector */
 #define EN_PIN1 10
 #define EN_PIN2 9
-#define PROG_MODE_PIN  A1
-#define BATTERY_PIN A2
-#define RAND_PIN A7
 
+/* Pin when dragged low goes into config mode */
+#define PROG_MODE_PIN  A1
+
+/* Connected to 3.7v battery via resitive divider [Vin - 12k -[SENSE]- 3.3k - GND] */
+#define BATTERY_PIN A2
+
+#define RADIO_CE_PIN 7
+#define RADIO_CSN_PIN 8
+
+/* Time between posting attributes */
 #define ATTR_POST_WAIT 2000
 
-RF24 radio(7,8);
+/* Radio and communication related definitions */
+RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
 RF24Network network(radio);
 RF24Mesh mesh(radio, network);
 
+unsigned char incoming_buffer[MAX_PACKET_SIZE];
+
 EMonCMS *emon = NULL;
 
+/* Attribute definitions */
 enum ATTRS {
 	ATTR_TIME,
 	ATTR_PRESSURE,
 	NUM_ATTR
 };
 
-unsigned char nodeID;
-uint64_t timeData = 0;
 AttributeValue attrVal[NUM_ATTR];
-unsigned char incoming_buffer[MAX_PACKET_SIZE];
-short sensorReading = 0;
 
+/* Data to store attribute readings */
+short sensorReading = 0;
+uint64_t timeData = 0;
+
+/* Time in millis of last post sent time */
 unsigned long lastAttributePostTime = 0;
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
@@ -66,7 +78,7 @@ int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 		sensorReading = (buffer[1] << 8) | buffer[0];
   		item->item = &sensorReading;
 		item->type = SHORT;
-		LOG(F("Pressure value read as ")); LOG(sensorReading); LOG(F("\r\n"));
+		LOG(F("pressureAttributeReader: value read as ")); LOG(sensorReading); LOG(F("\r\n"));
   		return true;
 	} else {
 		LOG("pressureAttributeReader: Sensor read failed\r\n");
@@ -92,7 +104,7 @@ int networkWriter(unsigned char type, unsigned char *buffer, int length) {
 		sprintf(sbuff, "0x%x, ", buffer[i]);
 		LOG(sbuff);
 	}
-	LOG("\r\n");
+	LOG(F("\r\n"));
 #endif
 	
 	return length;
@@ -113,8 +125,14 @@ void attributeRegistered(AttributeIdentifier *attr) {
 }
 
 void programmingLoop() {
-	Serial.println(random(220, 249));
-	delay(100);
+	unsigned char buffer[3];
+	if(Serial.available()) {
+		for(int i = 0; i < 2; i++) {
+			buffer[i] = buffer[i + 1];
+		}
+		buffer[2] = Serial.read();
+	}
+	
 }
 
 void setup() {
@@ -152,16 +170,16 @@ void setup() {
 		}
 	}
 
-	/* load RF24 node id from EEPROM */
-	nodeID = EEPROM.read(RF24NODEIDEEPROM);
-	/* if it's unset, assign a random one */
-	if(nodeID == 0) {
-		nodeID = random(220, 248);
-		EEPROM.write(RF24NODEIDEEPROM, nodeID);
+	/* if the RF24 Node ID is unset, assign a random one */
+	if(EEPROM.read(RF24NODEIDEEPROM) == 0) {
+		/* random to no more than 250 because for some reason it
+		 *  doesn't register with the gateway correctly otherwise.
+		 */
+		EEPROM.write(RF24NODEIDEEPROM, random(220, 248));
 	}
 	
-	LOG(F("Node id is ")); LOG(nodeID); LOG(F("\r\n"));
-	mesh.setNodeID(nodeID);
+	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
+	mesh.setNodeID(EEPROM.read(RF24NODEIDEEPROM));
 	radio.begin();
 	radio.setPALevel(RF24_PA_HIGH);
 	LOG(F("Connecting to mesh...\r\n"));

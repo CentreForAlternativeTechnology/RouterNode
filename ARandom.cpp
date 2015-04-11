@@ -1,9 +1,10 @@
 #include "Arduino.h"
+#include "ARandom.h"
 
 int aRand_getRand() {
 	int read = 0;
 	while(read == 0 || read == 1023) {
-		read = analogRead(A7);
+		read = analogRead(RAND_PIN);
 	}
 	return read;
 }
