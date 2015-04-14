@@ -1,5 +1,7 @@
 #ifndef __DEFINITIONS_H__
 #define __DEFINITIONS_H__
+
+#include "Arduino.h"
 /* uncomment to enable serial debug */
 //#define DEBUG
 
@@ -10,7 +12,11 @@
 #define RF24NODEIDEEPROM 1 /* RF24 NodeID, 0-255 */
 #define EMONNODEIDEEPROM1 2 /* unsigned short emon cms node id, LSB */
 #define EMONNODEIDEEPROM2 3 /* unsigned short emon cms node id, MSB */
-#define ATTR_REGISTERED_START 4 /* start of storage for attributes registered */
+#define ATTR_REGISTERED_START 100 /* start of storage for attributes registered */
+
+#define EEPROM_CALIB_GRAD 4
+#define EEPROM_CALIB_CONST 8
+#define EEPROM_CALIB_BASE 12
 
 /* Enable pins on communication connector */
 #define EN_PIN1 10
@@ -35,5 +41,15 @@
 
 /* Pin for collecting random data */
 #define RAND_PIN A7
+
+union floatBytes {
+	uint8_t bytes[4];
+	float value;
+};
+
+union intBytes {
+	uint8_t bytes[2];
+	int value;
+};
 
 #endif

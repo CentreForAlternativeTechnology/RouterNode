@@ -68,6 +68,36 @@ int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	}
 }
 
+float getDepth() {
+	floatBytes m, c;
+	intBytes base;
+	for(int i = 0; i < 4; i++) {
+		m.bytes[i] = EEPROM.read(EEPROM_CALIB_GRAD + i);
+		c.bytes[i] = EEPROM.read(EEPROM_CALIB_CONST + i);
+	}
+
+	for(int i = 0; i < 2; i++) {
+		base.bytes[i] = EEPROM.read(EEPROM_CALIB_BASE + i);
+	}
+
+	/* y = mx + c */
+	/* use where y = 0 to get the base calibration value */
+	int calibBase = (int)((-c.value)/m.value);
+
+	/* displace the sensor reading by the difference of
+	 * the base values of the linear calculation to the set base */
+	float depth = (float)(sensorReading - base.value + calibBase) * m.value + c.value;
+
+	/* because of rounding errors depth will sometimes be a really tiny number
+	 *  or slightyly less than 0. Ignore anything less accurate than a 1cm
+	 */
+	if(depth < 0.01) {
+		depth = 0;
+	}
+
+	return depth;
+}
+
 int networkWriter(unsigned char type, unsigned char *buffer, int length) {
 	if(!mesh.write(buffer, type, length)){
       // If a write fails, check connectivity to the mesh network

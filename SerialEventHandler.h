@@ -12,6 +12,11 @@
 #define C_GETEEPROM 0x09
 #define C_SETEEPROM 0x10
 #define C_GETPRESSURE 0x16
+#define C_SETPRESSUREGRADIENT 0x17
+#define C_SETPRESSURECONSTANT 0x18
+#define C_SETPRESSUREBASE 0x19
+#define C_DEBUG 0x1A
+#define C_GETDEPTH 0x1B
 
 class SerialEventHandler {
 public:
