@@ -4,11 +4,11 @@
 #include <SPI.h>
 #include <EEPROM.h>
 #include <Wire.h>
+#include "Definitions.h"
 #include "EMonCMS.h"
 #include "Debug.h"
 #include "ARandom.h"
 #include "SerialEventHandler.h"
-#include "Definitions.h"
 
 /* Radio and communication related definitions */
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
