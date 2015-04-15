@@ -5,7 +5,7 @@
 /* uncomment to enable serial debug */
 //#define DEBUG
 
-#define MAX_PACKET_SIZE 64 /* Maximum size of EMon packet */
+#define MAX_PACKET_SIZE 128 /* Maximum size of EMon packet */
 
 /* EEPROM Addresses */
 #define RESETEEPROM 0 /* if set to anything over than 0, resets EEPROM. */
@@ -17,6 +17,9 @@
 #define EEPROM_CALIB_GRAD 4
 #define EEPROM_CALIB_CONST 8
 #define EEPROM_CALIB_BASE 12
+
+#define EEPROM_ENCRYPT_ENABLE 14
+#define EEPROM_ENCRYPT_KEY 15
 
 /* Enable pins on communication connector */
 #define EN_PIN1 10

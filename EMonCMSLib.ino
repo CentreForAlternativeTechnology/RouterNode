@@ -101,18 +101,35 @@ float getDepth() {
 }
 
 int networkWriter(unsigned char *buffer, int length) {
-	unsigned char type = EMON_PLAIN;
-	if(!mesh.write(buffer, type, length)){
-      // If a write fails, check connectivity to the mesh network
-      if( mesh.checkConnection() ){
-        //refresh the network address
-        mesh.renewAddress(); 
-        if(!mesh.write(buffer, type, length)){
-        	LOG("networkWriter: failed\r\n");
-        	return 0;
-        }
-      }
-    }
+	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
+		for(int i = 0; i < length; i++) {
+			incoming_buffer[i + 1] = buffer[i];
+		}
+		int size = encryptPacket(incoming_buffer, length);
+		if(!mesh.write(incoming_buffer, EMON_ENCRYPTED, size)){
+			// If a write fails, check connectivity to the mesh network
+			if(mesh.checkConnection()){
+				//refresh the network address
+				mesh.renewAddress(); 
+        		if(!mesh.write(incoming_buffer, EMON_ENCRYPTED, size)){
+     	   			LOG("networkWriter: failed\r\n");
+        			return 0;
+				}
+			}
+    	}
+	} else {
+		if(!mesh.write(buffer, EMON_PLAIN, length)){
+			// If a write fails, check connectivity to the mesh network
+			if(mesh.checkConnection()){
+				//refresh the network address
+				mesh.renewAddress(); 
+        		if(!mesh.write(buffer, EMON_PLAIN, length)){
+     	   			LOG("networkWriter: failed\r\n");
+        			return 0;
+				}
+			}
+    	}
+	}
 #ifdef DEBUG
 	char sbuff[7];
 	for(int i = 0; i < length; i++) {
@@ -157,7 +174,7 @@ void generateIV(uint8_t *buffer) {
 	}
 }
 
-void encryptPacket(uint8_t *data, uint8_t data_size) {
+int encryptPacket(uint8_t *data, uint8_t data_size) {
 	/* round to the nearest multiple of 16 */
 	int block_data_size = ((data_size / 16) + (data_size % 16) ? 1 : 0) * 16;
 	/* data starts at byte 1, 0 all padding bytes */
@@ -167,16 +184,22 @@ void encryptPacket(uint8_t *data, uint8_t data_size) {
 	data[0] = block_data_size / 16;
 	generateIV(&(data[block_data_size + 1]));
 	aes128_cbc_enc(encryptionKey, &(data[block_data_size + 1]), &(data[1]), block_data_size);
+	return block_data_size + 15;
 }
 
-void decryptPacket(uint8_t type, uint8_t *data) {
+bool decryptPacket(uint8_t type, uint8_t *data) {
 	if(type == 'E') {
+		if(!EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
+			LOG(F("Encrpytion disabled could not decrpyt incoming message\r\n"));
+			return false;
+		}
 		int block_data_size = data[0] * 16;
 		aes128_cbc_dec(encryptionKey, &(data[block_data_size + 1]), &(data[1]), block_data_size);
 		for(int i = 0; i < block_data_size; i++) {
 			data[i] = data[i + 1];
 		}
 	}
+	return true;
 }
 
 void setup() {
@@ -206,6 +229,12 @@ void setup() {
 		programmingMode();
 	} else {
 		DEBUG_INIT;
+	}
+
+	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
+		for(int i = 0; i < 16; i++) {
+			encryptionKey[i] = EEPROM.read(EEPROM_ENCRYPT_KEY + i);
+		}
 	}
 	
 	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
