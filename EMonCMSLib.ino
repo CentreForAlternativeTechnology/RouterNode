@@ -165,15 +165,6 @@ void programmingMode() {
 	}
 }
 
-void generateIV(uint8_t *buffer) {
-	uint8_t * pt1 = (uint8_t *)random();
-	uint8_t * pt2 = (uint8_t *)random();
-	for(int i = 0; i < 8; i++) {
-		buffer[i] = pt1[i];
-		buffer[i + 8] = pt2[i];
-	}
-}
-
 int encryptPacket(uint8_t *data, uint8_t data_size) {
 	/* round to the nearest multiple of 16 */
 	int block_data_size = ((data_size / 16) + (data_size % 16) ? 1 : 0) * 16;
@@ -182,9 +173,10 @@ int encryptPacket(uint8_t *data, uint8_t data_size) {
 		data[i] = 0;
 	}
 	data[0] = block_data_size / 16;
-	generateIV(&(data[block_data_size + 1]));
-	aes128_cbc_enc(encryptionKey, &(data[block_data_size + 1]), &(data[1]), block_data_size);
-	return block_data_size + 15;
+	for(int i = 0; i < data[0]; i++) {
+		aes128_enc_single(encryptionKey, &(data[i * 16 + 1]));
+	}
+	return block_data_size + 1;
 }
 
 bool decryptPacket(uint8_t type, uint8_t *data) {
@@ -194,7 +186,9 @@ bool decryptPacket(uint8_t type, uint8_t *data) {
 			return false;
 		}
 		int block_data_size = data[0] * 16;
-		aes128_cbc_dec(encryptionKey, &(data[block_data_size + 1]), &(data[1]), block_data_size);
+		for(int i = 0; i < data[0]; i++) {
+			aes128_dec_single(encryptionKey, &(data[i * 16 + 1]));
+		}
 		for(int i = 0; i < block_data_size; i++) {
 			data[i] = data[i + 1];
 		}
