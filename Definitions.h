@@ -45,7 +45,7 @@
 /* Unencrypted EMonCMS packet */
 #define EMON_PLAIN 'e'
 /* Encrypted EMonCMS packet */
-#define EMON_ENCRYPED 'E'
+#define EMON_ENCRYPTED 'E'
 
 union floatBytes {
 	uint8_t bytes[4];

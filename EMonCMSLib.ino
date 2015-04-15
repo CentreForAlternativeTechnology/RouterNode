@@ -4,6 +4,7 @@
 #include <SPI.h>
 #include <EEPROM.h>
 #include <Wire.h>
+#include <AESLib.h>
 #include "Definitions.h"
 #include "EMonCMS.h"
 #include "Debug.h"
@@ -16,6 +17,7 @@ RF24Network network(radio);
 RF24Mesh mesh(radio, network);
 
 unsigned char incoming_buffer[MAX_PACKET_SIZE];
+uint8_t encryptionKey[16];
 
 EMonCMS *emon = NULL;
 
@@ -146,6 +148,37 @@ void programmingMode() {
 	}
 }
 
+void generateIV(uint8_t *buffer) {
+	uint8_t * pt1 = (uint8_t *)random();
+	uint8_t * pt2 = (uint8_t *)random();
+	for(int i = 0; i < 8; i++) {
+		buffer[i] = pt1[i];
+		buffer[i + 8] = pt2[i];
+	}
+}
+
+void encryptPacket(uint8_t *data, uint8_t data_size) {
+	/* round to the nearest multiple of 16 */
+	int block_data_size = ((data_size / 16) + (data_size % 16) ? 1 : 0) * 16;
+	/* data starts at byte 1, 0 all padding bytes */
+	for(int i = data_size + 1; i < block_data_size + 1; i++) {
+		data[i] = 0;
+	}
+	data[0] = block_data_size / 16;
+	generateIV(&(data[block_data_size + 1]));
+	aes128_cbc_enc(encryptionKey, &(data[block_data_size + 1]), &(data[1]), block_data_size);
+}
+
+void decryptPacket(uint8_t type, uint8_t *data) {
+	if(type == 'E') {
+		int block_data_size = data[0] * 16;
+		aes128_cbc_dec(encryptionKey, &(data[block_data_size + 1]), &(data[1]), block_data_size);
+		for(int i = 0; i < block_data_size; i++) {
+			data[i] = data[i + 1];
+		}
+	}
+}
+
 void setup() {
 	analogReference(INTERNAL);
 	pinMode(PROG_MODE_PIN, INPUT_PULLUP);
@@ -226,11 +259,12 @@ void loop() {
 		RF24NetworkHeader header;
 		network.peek(header);
 
-		if(header.type == EMON_PLAIN) {
+		if(header.type == EMON_PLAIN || header.type == EMON_ENCRYPTED) {
 			//HeaderInfo emonCMSHeader;
 			/* Setup an EMonCMS packet */
 			int read = 0;
 			if((read = network.read(header, incoming_buffer, MAX_PACKET_SIZE)) > sizeof(HeaderInfo)) {
+				decryptPacket(header.type, incoming_buffer);
 				if(((HeaderInfo *)incoming_buffer)->dataSize < (MAX_PACKET_SIZE - sizeof(HeaderInfo))) {
 					/* Setup buffers for storing the read data and parsing
 					 *  it to a reable format.
