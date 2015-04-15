@@ -25,22 +25,6 @@ EMonCMS::~EMonCMS() {
 	/* do nothing */
 }
 
-bool EMonCMS::isEMonCMSPacket(unsigned char type) {
-	switch(type) {
-		case 'r':
-			/* Acknowledged register */
-		case 'a':
-			/* Acknowledged attribute registration */
-		case 'p':
-			/* Acknowledged post */
-		case 'P':
-			/* Request for attribute */
-			return true;
-		default:
-			return false;
-	}
-}
-
 int EMonCMS::getTypeSize(unsigned char type) {
 	switch(type) {
 		case CHAR: case UCHAR:
@@ -143,7 +127,8 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 			return false;
 		} else {
 			((HeaderInfo *)failureBuffer)->status = status;
-			if(!this->networkSender('p', failureBuffer, size)) {
+			((HeaderInfo *)failureBuffer)->type = 'p';
+			if(!this->networkSender(failureBuffer, size)) {
 				LOG(F("Error sending error response to attribute request\r\n"));
 			}
 		}
@@ -158,7 +143,7 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 			LOG(F("Error: could not build response request failure"));
 			return false;
 		} else {
-			if(!this->networkSender('p', responseBuffer, size)) {
+			if(!this->networkSender(responseBuffer, size)) {
 				LOG(F("Error sending success response to attribute request\r\n"));
 			}
 		}
@@ -168,12 +153,8 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 	return true;
 }
 
-bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigned char *buffer, DataItem items[]) {
+bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]) {
 	LOG(F("parseEmonCMSPacket: enter\r\n"));
-	if(!isEMonCMSPacket(type)) {
-		LOG(F("parseEmonCMSPacket: not emon cms packet\r\n"));
-		return false;
-	}
 
 	if(header->dataCount > 0) {
 		int index = 0;
@@ -188,7 +169,7 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char type, unsigne
 		}
 	}
 
-	switch(type) {
+	switch(header->type) {
 		case 'r':
 			if(!checkHeader(header, 1)) {
 				break;
@@ -300,7 +281,7 @@ int EMonCMS::attrSender(RequestType type, DataItem *items, int length) {
 			return 0;
 		}
 		LOG(F("attrSender: exit\r\n"));
-		return this->networkSender(type, buffer, size);
+		return this->networkSender(buffer, size);
 }
 
 int EMonCMS::postAttribute(AttributeIdentifier *ident) {
@@ -331,6 +312,7 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 	/* Setup the header and input neccessary data */
 	HeaderInfo *header = (HeaderInfo *)buffer;
 	header->dataSize = 0;
+	header->type = type;
 	for(int i = 0; i < length; i++) {
 		header->dataSize += sizeof(items[i].type) + this->getTypeSize(items[i].type);
 	}

@@ -98,7 +98,8 @@ float getDepth() {
 	return depth;
 }
 
-int networkWriter(unsigned char type, unsigned char *buffer, int length) {
+int networkWriter(unsigned char *buffer, int length) {
+	unsigned char type = EMON_PLAIN;
 	if(!mesh.write(buffer, type, length)){
       // If a write fails, check connectivity to the mesh network
       if( mesh.checkConnection() ){
@@ -225,7 +226,7 @@ void loop() {
 		RF24NetworkHeader header;
 		network.peek(header);
 
-		if(emon->isEMonCMSPacket(header.type)) {
+		if(header.type == EMON_PLAIN) {
 			//HeaderInfo emonCMSHeader;
 			/* Setup an EMonCMS packet */
 			int read = 0;
@@ -248,7 +249,6 @@ void loop() {
 					} else {
 						LOG(F("Parsing incoming packet...\r\n"));
 						if(!emon->parseEMonCMSPacket(((HeaderInfo *)incoming_buffer),
-							header.type,
 							&(incoming_buffer[sizeof(HeaderInfo)]),
 							items))
 						{

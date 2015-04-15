@@ -42,6 +42,11 @@
 /* Pin for collecting random data */
 #define RAND_PIN A7
 
+/* Unencrypted EMonCMS packet */
+#define EMON_PLAIN 'e'
+/* Encrypted EMonCMS packet */
+#define EMON_ENCRYPED 'E'
+
 union floatBytes {
 	uint8_t bytes[4];
 	float value;
