@@ -36,7 +36,7 @@ uint64_t timeData = 0;
 unsigned long lastAttributePostTime = 0;
 
 /* Real-time clock */
-DS1302 rtc(RTC_RST, RTC_DATA, RTC_CLK);
+DS1302 rtc(RTC_CLK, RTC_DATA, RTC_RST);
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -149,7 +149,9 @@ void setup() {
 	analogReference(INTERNAL);
 	pinMode(PROG_MODE_PIN, INPUT_PULLUP);
 	pinMode(EN_PIN1, OUTPUT);
+	pinMode(RTC_EN, OUTPUT);
 	digitalWrite(EN_PIN1, LOW);
+	digitalWrite(RTC_EN, HIGH);
 
 	randomSeed(arandom());
 
