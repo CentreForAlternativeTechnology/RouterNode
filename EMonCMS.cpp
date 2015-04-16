@@ -213,7 +213,7 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, Data
 			/* this is a response to a post to the server no action has to be taken */
 			break;
 		default:
-			LOG(F("Unknown header type ")); LOG(type); LOG(F("\r\n"));
+			LOG(F("Unknown header type ")); LOG(header->type); LOG(F("\r\n"));
 			return false;
 	}
 	
