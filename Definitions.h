@@ -3,7 +3,7 @@
 
 #include "Arduino.h"
 /* uncomment to enable serial debug */
-//#define DEBUG
+#define DEBUG
 
 #define MAX_PACKET_SIZE 64 /* Maximum size of EMon packet */
 

@@ -29,7 +29,7 @@ enum ATTRS {
 AttributeValue attrVal[NUM_ATTR];
 
 /* Data to store attribute readings */
-short sensorReading = 0;
+unsigned short sensorReading = 0;
 uint64_t timeData = 0;
 
 /* Time in millis of last post sent time */
@@ -58,7 +58,7 @@ int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 		sensorReading = (buffer[1] << 8) | buffer[0];
 		if(item != NULL) {
   			item->item = &sensorReading;
-			item->type = SHORT;
+			item->type = USHORT;
 		}
 		LOG(F("pressureAttributeReader: value read as ")); LOG(sensorReading); LOG(F("\r\n"));
   		return true;
