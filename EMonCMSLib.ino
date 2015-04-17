@@ -100,36 +100,30 @@ float getDepth() {
 	return depth;
 }
 
-int networkWriter(unsigned char *buffer, int length) {
+int networkWriter(uint8_t type, unsigned char *buffer, int length) {
+	int size = 0;
+	uint8_t *send_buffer = NULL;
 	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
 		for(int i = 0; i < length; i++) {
 			incoming_buffer[i + 1] = buffer[i];
 		}
-		int size = encryptPacket(incoming_buffer, length);
-		if(!mesh.write(incoming_buffer, EMON_ENCRYPTED, size)){
-			// If a write fails, check connectivity to the mesh network
-			if(mesh.checkConnection()){
-				//refresh the network address
-				mesh.renewAddress(); 
-        		if(!mesh.write(incoming_buffer, EMON_ENCRYPTED, size)){
-     	   			LOG("networkWriter: failed\r\n");
-        			return 0;
-				}
-			}
-    	}
+		size = encryptPacket(incoming_buffer, length);
+		send_buffer = incoming_buffer;
 	} else {
-		if(!mesh.write(buffer, EMON_PLAIN, length)){
-			// If a write fails, check connectivity to the mesh network
-			if(mesh.checkConnection()){
-				//refresh the network address
-				mesh.renewAddress(); 
-        		if(!mesh.write(buffer, EMON_PLAIN, length)){
-     	   			LOG("networkWriter: failed\r\n");
-        			return 0;
-				}
-			}
-    	}
+		size = length;
+		send_buffer = buffer;
 	}
+	if(!mesh.write(send_buffer, type, size)){
+		// If a write fails, check connectivity to the mesh network
+		if(mesh.checkConnection()){
+			//refresh the network address
+			mesh.renewAddress(); 
+        	if(!mesh.write(send_buffer, type, size)){
+     	  		LOG("networkWriter: failed\r\n");
+        		return 0;
+			}
+		}
+    }
 #ifdef DEBUG
 	char sbuff[7];
 	for(int i = 0; i < length; i++) {
@@ -284,7 +278,7 @@ void loop() {
 		RF24NetworkHeader header;
 		network.peek(header);
 
-		if(header.type == EMON_PLAIN || header.type == EMON_ENCRYPTED) {
+		if(emon->isEMonCMSPacket(header.type)) {
 			//HeaderInfo emonCMSHeader;
 			/* Setup an EMonCMS packet */
 			int read = 0;
@@ -308,6 +302,7 @@ void loop() {
 					} else {
 						LOG(F("Parsing incoming packet...\r\n"));
 						if(!emon->parseEMonCMSPacket(((HeaderInfo *)incoming_buffer),
+							header.type,
 							&(incoming_buffer[sizeof(HeaderInfo)]),
 							items))
 						{

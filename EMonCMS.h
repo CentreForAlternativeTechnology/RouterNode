@@ -56,8 +56,6 @@ enum RequestType {
  * Initial header of OEMan Low-power Radio spec packet
  **/
 typedef struct {
-	unsigned char type; /** The type of incoming packet **/
-	unsigned char subtype; /** The sub-type of the incoming packet **/
 	unsigned short dataSize; /** Size of the data items section in bytes **/
 	unsigned char status; /** The status, SUCCESS in requests **/
 	unsigned char dataCount; /** Number of data items **/
@@ -87,7 +85,7 @@ typedef struct {
  * @param length length of buffer
  * @return the length of the buffer on success
  **/
-typedef int (*NetworkSender)(unsigned char *buffer, int length);
+typedef int (*NetworkSender)(uint8_t type, unsigned char *buffer, int length);
 
 /**
  * Function implemented by host program to retrieve the value of a piece of data.
@@ -139,6 +137,11 @@ class EMonCMS {
 			);
 		~EMonCMS();
 		/* methods for receiving packets */
+		/** Checks the incoming type to see if it is an accepted type
+         * @param type type of incoming packet to check
+         * @return true if it is an emon cms packet type
+         **/
+		bool isEMonCMSPacket(unsigned char type);
 		/**
 		 * Parses an incoming emon cms packet 
 		 * @param header incomiing emon cms header
@@ -147,7 +150,7 @@ class EMonCMS {
 		 * @param items a list of data items the size of count in the header
 		 * @return returns true if the function succeeded
 		 **/
-		bool parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]);
+		bool parseEMonCMSPacket(HeaderInfo *header, uint8_t type, unsigned char *buffer, DataItem items[]);
 		/* methods for sending packets */
 		/**
 		 * Calculates the buffer size for the buffer passed to attrBuilder

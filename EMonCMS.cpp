@@ -101,6 +101,22 @@ AttributeValue *EMonCMS::getAttribute(AttributeIdentifier *attr) {
 	return NULL;
 }
 
+bool EMonCMS::isEMonCMSPacket(unsigned char type) {
+	switch(type) {
+		case 'r':
+			/* Acknowledged register */
+		case 'a':
+			/* Acknowledged attribute registration */
+		case 'p':
+			/* Acknowledged post */
+		case 'P':
+			/* Request for attribute */
+			return true;
+		default:
+			return false;
+	}
+}
+
 bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 	/* extract the attribute identifying information */
 	AttributeIdentifier ident;
@@ -127,8 +143,7 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 			return false;
 		} else {
 			((HeaderInfo *)failureBuffer)->status = status;
-			((HeaderInfo *)failureBuffer)->type = 'p';
-			if(!this->networkSender(failureBuffer, size)) {
+			if(!this->networkSender('p', failureBuffer, size)) {
 				LOG(F("Error sending error response to attribute request\r\n"));
 			}
 		}
@@ -143,7 +158,7 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 			LOG(F("Error: could not build response request failure"));
 			return false;
 		} else {
-			if(!this->networkSender(responseBuffer, size)) {
+			if(!this->networkSender('p', responseBuffer, size)) {
 				LOG(F("Error sending success response to attribute request\r\n"));
 			}
 		}
@@ -153,8 +168,14 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 	return true;
 }
 
-bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, DataItem items[]) {
+bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, uint8_t type, unsigned char *buffer, DataItem items[]) {
 	LOG(F("parseEmonCMSPacket: enter\r\n"));
+
+	if(!isEMonCMSPacket(type)) {
+		LOG(F("parseEmonCMSPacket: not emon cms packet\r\n"));
+		return false;
+	}
+
 
 	if(header->dataCount > 0) {
 		int index = 0;
@@ -169,7 +190,7 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, Data
 		}
 	}
 
-	switch(header->type) {
+	switch(type) {
 		case 'r':
 			if(!checkHeader(header, 1)) {
 				break;
@@ -213,7 +234,7 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, unsigned char *buffer, Data
 			/* this is a response to a post to the server no action has to be taken */
 			break;
 		default:
-			LOG(F("Unknown header type ")); LOG(header->type); LOG(F("\r\n"));
+			LOG(F("Unknown header type ")); LOG(type); LOG(F("\r\n"));
 			return false;
 	}
 	
@@ -281,7 +302,7 @@ int EMonCMS::attrSender(RequestType type, DataItem *items, int length) {
 			return 0;
 		}
 		LOG(F("attrSender: exit\r\n"));
-		return this->networkSender(buffer, size);
+		return this->networkSender(type, buffer, size);
 }
 
 int EMonCMS::postAttribute(AttributeIdentifier *ident) {
@@ -312,7 +333,6 @@ int EMonCMS::attrBuilder(RequestType type, DataItem *items, int length, unsigned
 	/* Setup the header and input neccessary data */
 	HeaderInfo *header = (HeaderInfo *)buffer;
 	header->dataSize = 0;
-	header->type = type;
 	for(int i = 0; i < length; i++) {
 		header->dataSize += sizeof(items[i].type) + this->getTypeSize(items[i].type);
 	}
