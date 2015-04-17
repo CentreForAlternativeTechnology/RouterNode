@@ -1,7 +1,7 @@
 #ifndef __DEFINITIONS_H__
 #define __DEFINITIONS_H__
 
-#include "Arduino.h"
+#include <Arduino.h>
 /* uncomment to enable serial debug */
 //#define DEBUG
 

@@ -31,14 +31,14 @@ enum ATTRS {
 AttributeValue attrVal[NUM_ATTR];
 
 /* Data to store attribute readings */
-unsigned short sensorReading = 0;
+uint16_t sensorReading = 0;
 uint64_t timeData = 0;
 
 /* Time in millis of last post sent time */
 unsigned long lastAttributePostTime = 0;
 
 /* Real-time clock */
-DS1302 rtc(RTC_CLK, RTC_DATA, RTC_RST);
+RTC rtc(RTC_CLK, RTC_DATA, RTC_RST);
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -50,6 +50,10 @@ int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 }
 
 int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+	if(digitalRead(EN_PIN1) == LOW) {
+		digitalWrite(EN_PIN1, HIGH);
+		delay(250);
+	}
 	Wire.requestFrom(4, 2);
 	if(Wire.available()) {
 		uint8_t buffer[2];
@@ -192,11 +196,18 @@ bool decryptPacket(uint8_t type, uint8_t *data) {
 
 void setup() {
 	analogReference(INTERNAL);
+	
 	pinMode(PROG_MODE_PIN, INPUT_PULLUP);
+	
 	pinMode(EN_PIN1, OUTPUT);
-	pinMode(RTC_EN, OUTPUT);
+	pinMode(EN_PIN2, OUTPUT);
 	digitalWrite(EN_PIN1, LOW);
+	digitalWrite(EN_PIN2, LOW);
+	
+	pinMode(RTC_EN, OUTPUT);
 	digitalWrite(RTC_EN, HIGH);
+
+	Wire.begin();
 
 	randomSeed(arandom());
 
@@ -230,7 +241,8 @@ void setup() {
 	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
 	mesh.setNodeID(EEPROM.read(RF24NODEIDEEPROM));
 	radio.begin();
-	radio.setPALevel(RF24_PA_HIGH);
+	radio.setPALevel(RF24_PA_MAX);
+	
 	LOG(F("Connecting to mesh...\r\n"));
 	mesh.begin();
 
@@ -325,4 +337,7 @@ void loop() {
 	}
 }
 
-
+void wake() {
+	digitalWrite(RTC_EN, HIGH);
+	radio.powerUp();
+}

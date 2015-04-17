@@ -1,6 +1,6 @@
 #include "Arduino.h"
 #include "SerialEventHandler.h"
-#include "DS1302.h"
+#include <RTC.h>
 #include <EEPROM.h>
 #include <Wire.h>
 #include "EMonCMS.h"
@@ -9,7 +9,6 @@
 
 extern int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item);
 extern float getDepth();
-bool sensorEnabled = false;
 
 void sendDebug(const char *str) {
 	int len = strlen(str);
@@ -28,7 +27,7 @@ int SerialEventHandler::freeRam() {
 	return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
 }
 
-SerialEventHandler::SerialEventHandler(DS1302 *rtc) {
+SerialEventHandler::SerialEventHandler(RTC *rtc) {
 	this->rtc = rtc;
 	Serial.setTimeout(40);
 }
@@ -65,15 +64,6 @@ float receiveFloat(uint8_t *inp) {
 	return b.value;
 }
 
-void enableSensor() {
-	if(!sensorEnabled) {
-		Wire.begin();
-		digitalWrite(EN_PIN1, HIGH);
-		delay(300);
-		sensorEnabled = true;
-	}
-}
-
 void SerialEventHandler::parseSerial() {
 		/* Declare everything we might use in here */
 		char debugBuffer[64];
@@ -98,25 +88,26 @@ void SerialEventHandler::parseSerial() {
 				if(data_buffer[6] < 1 || data_buffer[6] > 7) { 
 					break; 
 				}
-				rtc->year((uint16_t)data_buffer[0] + 2000);
-				rtc->month(data_buffer[1]);
-				rtc->date(data_buffer[2]);
-				rtc->hour(data_buffer[3]);
-				rtc->minutes(data_buffer[4]);
-				rtc->seconds(data_buffer[5]);
-				rtc->day((Time::Day)data_buffer[6]);
-				rtc->halt(false);
+				rtc->getDateTime()->setYear((uint16_t)data_buffer[0] + 2000);
+				rtc->getDateTime()->setMonth(data_buffer[1]);
+				rtc->getDateTime()->setDate(data_buffer[2]);
+				rtc->getDateTime()->setHours(data_buffer[3]);
+				rtc->getDateTime()->setMinutes(data_buffer[4]);
+				rtc->getDateTime()->setSeconds(data_buffer[5]);
+				rtc->getDateTime()->setDay(data_buffer[6]);
+				rtc->setDateTime();
 				break;
 			case C_GETCLOCK:
 				commandBytes[1] = 7;
 				data_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 7);
-				data_buffer[0] = (uint8_t)(rtc->year() - 2000);
-				data_buffer[1] = rtc->month();
-				data_buffer[2] = rtc->date();
-				data_buffer[3] = rtc->hour();
-				data_buffer[4] = rtc->minutes();
-				data_buffer[5] = rtc->seconds();
-				data_buffer[6] = rtc->day();
+				rtc->read();
+				data_buffer[0] = (uint8_t)(rtc->getDateTime()->getYear() - 2000);
+				data_buffer[1] = rtc->getDateTime()->getMonth();
+				data_buffer[2] = rtc->getDateTime()->getDate();
+				data_buffer[3] = rtc->getDateTime()->getHours();
+				data_buffer[4] = rtc->getDateTime()->getMinutes();
+				data_buffer[5] = rtc->getDateTime()->getSeconds();
+				data_buffer[6] = rtc->getDateTime()->getDay();
 				Serial.write(commandBytes, (size_t)2);
 				Serial.write(data_buffer, 7);
 				break;
@@ -128,7 +119,6 @@ void SerialEventHandler::parseSerial() {
 				break;
 			case C_GETPRESSURE:
 				commandBytes[1] = (uint8_t)0x02;
-				enableSensor();
 				if(pressureAttributeReader(NULL, &item)) {
 					Serial.write(commandBytes, (size_t)2);
 					sendShort(*(short *)(item.item));
@@ -178,14 +168,12 @@ void SerialEventHandler::parseSerial() {
 				}
 				break;
 			case C_SETPRESSUREBASE:
-				enableSensor();
 				if(pressureAttributeReader(NULL, &item)) {
 					EEPROM.write(EEPROM_CALIB_BASE, ((uint8_t *)(item.item))[0]);
 					EEPROM.write(EEPROM_CALIB_BASE + 1, ((uint8_t *)(item.item))[1]);
 				}
 				break;
 			case C_GETDEPTH:
-				enableSensor();
 				if(pressureAttributeReader(NULL, &item)) {
 					commandBytes[1] = 4;
 					Serial.write(commandBytes, 2);
