@@ -105,6 +105,7 @@ void SerialEventHandler::parseSerial() {
 				rtc->minutes(data_buffer[4]);
 				rtc->seconds(data_buffer[5]);
 				rtc->day((Time::Day)data_buffer[6]);
+				rtc->halt(false);
 				break;
 			case C_GETCLOCK:
 				commandBytes[1] = 7;

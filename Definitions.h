@@ -38,6 +38,7 @@
 #define RTC_CLK 4
 #define RTC_DATA 5
 #define RTC_RST 6
+#define RTC_EN 3
 
 /* Time between posting attributes */
 #define ATTR_POST_WAIT 2000

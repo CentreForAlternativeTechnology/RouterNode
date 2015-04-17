@@ -19,14 +19,14 @@
  * low power radio
  **/
 enum dataTypes {
-	STRING = 0,
-	CHAR = 1,
-	UCHAR = 2,
-	SHORT = 3,
-	USHORT = 4,
-	INT = 5,
-	UINT = 6,
-	LONG = 7,
+	STRING = 1,
+	CHAR = 2,
+	UCHAR = 3,
+	SHORT = 4,
+	USHORT = 5,
+	INT = 6,
+	UINT = 7,
+	LONG = 8,
 	ULONG = 9,
 	FLOAT = 10
 };

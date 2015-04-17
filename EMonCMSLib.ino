@@ -31,14 +31,14 @@ enum ATTRS {
 AttributeValue attrVal[NUM_ATTR];
 
 /* Data to store attribute readings */
-short sensorReading = 0;
+unsigned short sensorReading = 0;
 uint64_t timeData = 0;
 
 /* Time in millis of last post sent time */
 unsigned long lastAttributePostTime = 0;
 
 /* Real-time clock */
-DS1302 rtc(RTC_RST, RTC_DATA, RTC_CLK);
+DS1302 rtc(RTC_CLK, RTC_DATA, RTC_RST);
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -60,7 +60,7 @@ int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 		sensorReading = (buffer[1] << 8) | buffer[0];
 		if(item != NULL) {
   			item->item = &sensorReading;
-			item->type = SHORT;
+			item->type = USHORT;
 		}
 		LOG(F("pressureAttributeReader: value read as ")); LOG(sensorReading); LOG(F("\r\n"));
   		return true;
@@ -200,7 +200,9 @@ void setup() {
 	analogReference(INTERNAL);
 	pinMode(PROG_MODE_PIN, INPUT_PULLUP);
 	pinMode(EN_PIN1, OUTPUT);
+	pinMode(RTC_EN, OUTPUT);
 	digitalWrite(EN_PIN1, LOW);
+	digitalWrite(RTC_EN, HIGH);
 
 	randomSeed(arandom());
 
