@@ -12,6 +12,7 @@
 #include "Debug.h"
 #include "ARandom.h"
 #include "SerialEventHandler.h"
+#include "Sleep.h"
 
 /* Radio and communication related definitions */
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
@@ -160,6 +161,10 @@ void programmingMode() {
 	Serial.begin(115200);
 	Serial.println("Programming Mode");
 	SerialEventHandler serialEvent(&rtc);
+	digitalWrite(RTC_EN, HIGH);
+	radio.begin();
+	Sleep s(&rtc, &radio);
+	s.sleepUntil(rtc.get() + 30);
 	while(true) {
 		serialEvent.parseSerial();
 	}
@@ -210,6 +215,7 @@ void setup() {
 
 	randomSeed(arandom());
 
+	/* Enable the RTC */
 	pinMode(RTC_EN, OUTPUT);
 	digitalWrite(RTC_EN, HIGH);
 	/* set the time provider for the time library to the RTC */

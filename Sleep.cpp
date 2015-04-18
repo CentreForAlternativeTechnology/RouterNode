@@ -4,8 +4,9 @@
 
 #include "Sleep.h"
 
-Sleep::Sleep(DS1302RTC *rtc) {
+Sleep::Sleep(DS1302RTC *rtc, RF24 *radio) {
 	this->rtc = rtc;
+	this->radio = radio;
 }
 
 Sleep::~Sleep() {
@@ -13,10 +14,6 @@ Sleep::~Sleep() {
 }
 
 void Sleep::enableSleep() {
-	digitalWrite(EN_PIN1, LOW);
-	digitalWrite(EN_PIN2, LOW);
-	digitalWrite(RTC_EN, LOW);
-
 	/* Set sleep mode */
 	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
@@ -51,8 +48,25 @@ void Sleep::setupSleep() {
 	WDTCSR |= _BV(WDIE);
 }
 
-void Sleep::sleepUntil(time_t t) {
-	
+void Sleep::sleepUntil(time_t untilTime) {
+	time_t currentTime;
+	/* Sensor is powered up when needed */
+	digitalWrite(EN_PIN1, LOW);
+	digitalWrite(EN_PIN2, LOW);
+	radio->powerDown();
+
+	this->setupSleep();
+
+	do {
+		this->enableSleep();
+		digitalWrite(RTC_EN, HIGH);
+		currentTime = rtc->get();
+		digitalWrite(RTC_EN, LOW);
+	} while(untilTime > currentTime);
+
+	digitalWrite(EN_PIN1, HIGH);
+
+	radio->powerUp();
 }
 
 ISR(WDT_vect) {
