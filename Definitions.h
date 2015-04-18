@@ -12,7 +12,7 @@
 #define RF24NODEIDEEPROM 1 /* RF24 NodeID, 0-255 */
 #define EMONNODEIDEEPROM1 2 /* unsigned short emon cms node id, LSB */
 #define EMONNODEIDEEPROM2 3 /* unsigned short emon cms node id, MSB */
-#define ATTR_REGISTERED_START 100 /* start of storage for attributes registered */
+#define ATTR_REGISTERED_START 400 /* start of storage for attributes registered */
 
 #define EEPROM_CALIB_GRAD 4
 #define EEPROM_CALIB_CONST 8
@@ -20,6 +20,8 @@
 
 #define EEPROM_ENCRYPT_ENABLE 14
 #define EEPROM_ENCRYPT_KEY 15
+
+#define EEPROM_ALARM_START 20
 
 /* Enable pins on communication connector */
 #define EN_PIN1 10

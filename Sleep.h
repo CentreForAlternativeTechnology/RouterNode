@@ -7,16 +7,26 @@
 #include <RF24.h>
 #include "Definitions.h"
 
+typedef struct {
+	uint8_t hour;
+	uint8_t minute;
+} WakeTime;
+
 class Sleep {
 public:
-	Sleep(DS1302RTC *rtc, RF24 *radio);
+	Sleep(DS1302RTC *rtc, RF24 *radio, int wakeTimesAddress);
 	~Sleep();
 	void sleepUntil(time_t t);
+	time_t getNextWakeTime();
+	void checkSleep();
 private:
-	DS1302RTC *rtc;
-	RF24 *radio;
 	void setupSleep();
 	void enableSleep();
+	DS1302RTC *rtc;
+	RF24 *radio;
+	WakeTime *wakeTimes;
+	uint8_t numWakeTimes;
+	uint8_t wakeLength;
 };
 
 #endif

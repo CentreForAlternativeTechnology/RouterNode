@@ -163,8 +163,10 @@ void programmingMode() {
 	SerialEventHandler serialEvent(&rtc);
 	digitalWrite(RTC_EN, HIGH);
 	radio.begin();
-	Sleep s(&rtc, &radio);
-	s.sleepUntil(rtc.get() + 30);
+	Sleep s(&rtc, &radio, EEPROM_ALARM_START);
+	Serial.print("time is "); Serial.println(rtc.get());
+	Serial.print("next wake at "); Serial.print(s.getNextWakeTime());
+	Serial.print(" in "); Serial.println(s.getNextWakeTime() - rtc.get());
 	while(true) {
 		serialEvent.parseSerial();
 	}
