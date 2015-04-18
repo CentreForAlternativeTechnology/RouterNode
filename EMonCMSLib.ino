@@ -43,6 +43,9 @@ unsigned long lastAttributePostTime = 0;
 /* Real-time clock */
 DS1302RTC rtc(RTC_CLK, RTC_DATA, RTC_RST);
 
+/* Sleep controller */
+Sleep s(&rtc, &radio, EEPROM_ALARM_START);
+
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
 	timeData = millis();
@@ -163,10 +166,6 @@ void programmingMode() {
 	SerialEventHandler serialEvent(&rtc);
 	digitalWrite(RTC_EN, HIGH);
 	radio.begin();
-	Sleep s(&rtc, &radio, EEPROM_ALARM_START);
-	Serial.print("time is "); Serial.println(rtc.get());
-	Serial.print("next wake at "); Serial.print(s.getNextWakeTime());
-	Serial.print(" in "); Serial.println(s.getNextWakeTime() - rtc.get());
 	while(true) {
 		serialEvent.parseSerial();
 	}
@@ -281,6 +280,9 @@ void setup() {
 }
 
 void loop() {
+	/* See if it's sleeping time */
+	s.checkSleep();
+	
 	mesh.update();
 	/* check to see whether we have a node id */
 	emon->registerNode();

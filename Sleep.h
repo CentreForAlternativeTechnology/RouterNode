@@ -19,11 +19,14 @@ public:
 	void sleepUntil(time_t t);
 	time_t getNextWakeTime();
 	void checkSleep();
+	bool shouldBeAwake();
 private:
 	void setupSleep();
 	void enableSleep();
 	DS1302RTC *rtc;
 	RF24 *radio;
+	time_t nextSleep;
+	time_t nextWake;
 	WakeTime *wakeTimes;
 	uint8_t numWakeTimes;
 	uint8_t wakeLength;

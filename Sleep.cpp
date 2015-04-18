@@ -8,6 +8,8 @@
 Sleep::Sleep(DS1302RTC *rtc, RF24 *radio, int wakeTimesAddress) {
 	this->rtc = rtc;
 	this->radio = radio;
+	this->nextWake = 0;
+	this->nextSleep = 0;
 	/* Load the alarms into RAM for a quick go over */
 	this->wakeLength = EEPROM.read(wakeTimesAddress);
 	if(this->wakeLength == 0) {
@@ -66,6 +68,7 @@ void Sleep::sleepUntil(time_t untilTime) {
 	/* Sensor is powered up when needed */
 	digitalWrite(EN_PIN1, LOW);
 	digitalWrite(EN_PIN2, LOW);
+	digitalWrite(RTC_EN, LOW);
 	radio->powerDown();
 
 	this->setupSleep();
@@ -77,6 +80,7 @@ void Sleep::sleepUntil(time_t untilTime) {
 		digitalWrite(RTC_EN, LOW);
 	} while(untilTime > currentTime);
 
+	digitalWrite(RTC_EN, HIGH);
 	digitalWrite(EN_PIN1, HIGH);
 
 	radio->powerUp();
@@ -122,8 +126,46 @@ time_t Sleep::getNextWakeTime() {
 	return makeTime(tm);
 }
 
+void printTime(char *str, time_t t) {
+	char buffer[40];
+	sprintf(buffer, "%s %d:%d\r\n", str, hour(t), minute(t));
+	Serial.print(buffer);
+}
+
+bool Sleep::shouldBeAwake() {
+	if(this->numWakeTimes == 0) {
+		return true;
+	}
+	tmElements_t start, end;
+	rtc->read(start);
+	rtc->read(end);
+	for(int i = 0; i < this->numWakeTimes; i++) {
+		uint8_t hour = this->wakeTimes[i].hour;
+		/* If the hour is 0xFF then that is every hour.
+		 *  Since we're checking whether it should be awake, the hour will be the current.
+		 */
+		if(hour == 0xFF) {
+			hour = start.Hour;
+		}
+		start.Hour = hour;
+		start.Minute = this->wakeTimes[i].minute;
+		end.Hour = hour + (this->wakeTimes[i].minute + this->wakeLength) / 60;
+		end.Minute = (this->wakeTimes[i].minute + this->wakeLength) % 60;
+		if(rtc->get() > makeTime(start) && rtc->get() < makeTime(end)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void Sleep::checkSleep() {
-	
+	if(!(rtc->get() >= this->nextWake && rtc->get() < this->nextSleep)) {
+		if(!this->shouldBeAwake()) {
+			nextWake = getNextWakeTime();
+			nextSleep = nextWake + (wakeLength * 60);
+			sleepUntil(nextWake);
+		}
+	}
 }
 
 ISR(WDT_vect) {
