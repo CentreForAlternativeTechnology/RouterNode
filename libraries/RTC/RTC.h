@@ -148,6 +148,7 @@ class RTC {
     uint8_t ds_sclk;
     uint8_t ds_io;
     uint8_t ds_ce;
+    int enableClockPin;
     //Time buffer
     struct ds1302_struct ds_time;
     Time time;
@@ -161,7 +162,7 @@ class RTC {
     void RTCToggleWrite( uint8_t data, uint8_t release);
   public: 
     RTC(){};
-    RTC(uint8_t sclk, uint8_t io, uint8_t ce);
+    RTC(uint8_t sclk, uint8_t io, uint8_t ce, int enableClockPin = -1);
     void read();
     Time *getDateTime();
     void setTrickleState(int num_diodes, int resistor_val);

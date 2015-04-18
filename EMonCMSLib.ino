@@ -38,7 +38,7 @@ uint64_t timeData = 0;
 unsigned long lastAttributePostTime = 0;
 
 /* Real-time clock */
-RTC rtc(RTC_CLK, RTC_DATA, RTC_RST);
+RTC rtc(RTC_CLK, RTC_DATA, RTC_RST, RTC_EN);
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -203,9 +203,6 @@ void setup() {
 	pinMode(EN_PIN2, OUTPUT);
 	digitalWrite(EN_PIN1, LOW);
 	digitalWrite(EN_PIN2, LOW);
-	
-	pinMode(RTC_EN, OUTPUT);
-	digitalWrite(RTC_EN, HIGH);
 
 	Wire.begin();
 
@@ -245,10 +242,6 @@ void setup() {
 	
 	LOG(F("Connecting to mesh...\r\n"));
 	mesh.begin();
-
-	/* Initialise I2C and enable secondary board */
-	Wire.begin();
-	digitalWrite(EN_PIN1, HIGH);
 
 	/* setup the time reading attribute */
 	attrVal[ATTR_TIME].attr.groupID = 10;
@@ -335,9 +328,4 @@ void loop() {
 			LOG(F("Unknown packet type, discarding\r\n"));
 		}
 	}
-}
-
-void wake() {
-	digitalWrite(RTC_EN, HIGH);
-	radio.powerUp();
 }

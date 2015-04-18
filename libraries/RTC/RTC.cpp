@@ -9,10 +9,15 @@
 //
 
 // Designate pins sclk, io, and ce
-RTC::RTC(uint8_t sclk, uint8_t io, uint8_t ce){
+RTC::RTC(uint8_t sclk, uint8_t io, uint8_t ce, int enableClockPin){
   this->ds_sclk = sclk;
   this->ds_io = io;
   this->ds_ce = ce;
+  this->enableClockPin = enableClockPin;
+  if(this->enableClockPin >= 0) {
+	  pinMode(this->enableClockPin, OUTPUT);
+	  digitalWrite(this->enableClockPin, LOW);
+  }
 }
 
 // Update the internal buffer from the chip
@@ -36,6 +41,7 @@ void RTC::read(){
   this->time.setMonth((unsigned int)bcd2bin(this->ds_time.Month10, this->ds_time.Month));
   this->time.setDay((unsigned int)(this->ds_time.Day));
   this->time.setYear(2000 + (unsigned int)(bcd2bin(this->ds_time.Year10, this->ds_time.Year)));
+  Serial.println(this->time.getSeconds());
 }
 Time *RTC::getDateTime(){
   return &time;
@@ -197,6 +203,10 @@ void RTC::RTCWrite(int address, uint8_t data)
 // the signals are low (inactive) until the DS1302 is used.
 void RTC::RTCStart(void)
 {
+  if(this->enableClockPin >= 0) {
+    digitalWrite(this->enableClockPin, HIGH);
+  }
+
   digitalWrite( this->ds_ce, LOW); // default, not enabled
   pinMode( this->ds_ce, OUTPUT);  
 
@@ -221,6 +231,10 @@ void RTC::RTCStop(void)
   digitalWrite( this->ds_ce, LOW);
 
   delayMicroseconds( 4);           // tCWH = 4us
+  
+  if(this->enableClockPin >= 0) {
+    digitalWrite(this->enableClockPin, LOW);
+  }
 }
 
 
