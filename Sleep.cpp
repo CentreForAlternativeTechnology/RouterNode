@@ -4,7 +4,7 @@
 
 #include "Sleep.h"
 
-Sleep::Sleep(DS1302 *rtc) {
+Sleep::Sleep(DS1302RTC *rtc) {
 	this->rtc = rtc;
 }
 
@@ -51,7 +51,7 @@ void Sleep::setupSleep() {
 	WDTCSR |= _BV(WDIE);
 }
 
-void Sleep::sleepUntil(Time *t) {
+void Sleep::sleepUntil(time_t t) {
 	
 }
 

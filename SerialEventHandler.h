@@ -1,7 +1,7 @@
 #ifndef __SERIALEVENTHANDLER_H__
 #define __SERIALEVENTHANDLER_H__
 
-#include <RTC.h>
+#include <DS1302RTC.h>
 #include "Arduino.h"
 
 /* commands */
@@ -20,12 +20,12 @@
 
 class SerialEventHandler {
 public:
-	SerialEventHandler(RTC *rtc);
+	SerialEventHandler(DS1302RTC *rtc);
 	~SerialEventHandler();
 	void parseSerial();
 	int freeRam();
 private:
 	uint8_t *readBytes(uint8_t size, uint8_t extra_space = 0);
-	RTC *rtc;
+	DS1302RTC *rtc;
 };
 #endif

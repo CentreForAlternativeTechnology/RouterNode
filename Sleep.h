@@ -2,18 +2,19 @@
 #define __SLEEP_H__
 
 #include <Arduino.h>
-#include <DS1302.h>
+#include <Time.h>
+#include <DS1302RTC.h>
 #include "Definitions.h"
 
 class Sleep {
 public:
-	Sleep(DS1302 *rtc);
+	Sleep(DS1302RTC *rtc);
 	~Sleep();
 private:
-	DS1302 *rtc;
+	DS1302RTC *rtc;
 	void setupSleep();
 	void enableSleep();
-	void sleepUntil(Time *t);
+	void sleepUntil(time_t t);
 };
 
 #endif

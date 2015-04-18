@@ -1,8 +1,9 @@
-#include "Arduino.h"
-#include "SerialEventHandler.h"
-#include <RTC.h>
+#include <Arduino.h>
+#include <Time.h>
+#include <DS1302RTC.h>
 #include <EEPROM.h>
 #include <Wire.h>
+#include "SerialEventHandler.h"
 #include "EMonCMS.h"
 
 #define ASHORT(x) (((uint8_t *)(&(x)))[1] | (((uint8_t *)(&(x)))[0] << 8))
@@ -27,7 +28,7 @@ int SerialEventHandler::freeRam() {
 	return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
 }
 
-SerialEventHandler::SerialEventHandler(RTC *rtc) {
+SerialEventHandler::SerialEventHandler(DS1302RTC *rtc) {
 	this->rtc = rtc;
 	Serial.setTimeout(40);
 }
@@ -75,6 +76,9 @@ void SerialEventHandler::parseSerial() {
 		DataItem item;
 		floatBytes flb;
 
+		time_t t;
+		tmElements_t tm;
+
 		/* Read the 2 command bytes */
 		if(Serial.available() > 1) {
 			Serial.readBytes((char *)commandBytes, (size_t)2);
@@ -88,26 +92,27 @@ void SerialEventHandler::parseSerial() {
 				if(data_buffer[6] < 1 || data_buffer[6] > 7) { 
 					break; 
 				}
-				rtc->getDateTime()->setYear((uint16_t)data_buffer[0] + 2000);
-				rtc->getDateTime()->setMonth(data_buffer[1]);
-				rtc->getDateTime()->setDate(data_buffer[2]);
-				rtc->getDateTime()->setHours(data_buffer[3]);
-				rtc->getDateTime()->setMinutes(data_buffer[4]);
-				rtc->getDateTime()->setSeconds(data_buffer[5]);
-				rtc->getDateTime()->setDay(data_buffer[6]);
-				rtc->setDateTime();
+				tm.Year = y2kYearToTm(data_buffer[0]);
+				tm.Month = data_buffer[1];
+				tm.Day = data_buffer[2];
+				tm.Hour = data_buffer[3];
+				tm.Minute = data_buffer[4];
+				tm.Second = data_buffer[5];
+				tm.Wday = data_buffer[6];
+				t = makeTime(tm);
+				rtc->set(t);
 				break;
 			case C_GETCLOCK:
 				commandBytes[1] = 7;
 				data_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 7);
-				rtc->read();
-				data_buffer[0] = (uint8_t)(rtc->getDateTime()->getYear() - 2000);
-				data_buffer[1] = rtc->getDateTime()->getMonth();
-				data_buffer[2] = rtc->getDateTime()->getDate();
-				data_buffer[3] = rtc->getDateTime()->getHours();
-				data_buffer[4] = rtc->getDateTime()->getMinutes();
-				data_buffer[5] = rtc->getDateTime()->getSeconds();
-				data_buffer[6] = rtc->getDateTime()->getDay();
+				rtc->read(tm);
+				data_buffer[0] = (uint8_t)(tmYearToCalendar(tm.Year) - 2000);
+				data_buffer[1] = tm.Month;
+				data_buffer[2] = tm.Day;
+				data_buffer[3] = tm.Hour;
+				data_buffer[4] = tm.Minute;
+				data_buffer[5] = tm.Second;
+				data_buffer[6] = tm.Wday;
 				Serial.write(commandBytes, (size_t)2);
 				Serial.write(data_buffer, 7);
 				break;

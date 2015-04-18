@@ -5,6 +5,8 @@
 #include <EEPROM.h>
 #include <Wire.h>
 #include <AESLib.h>
+#include <Time.h>
+#include <DS1302RTC.h>
 #include "Definitions.h"
 #include "EMonCMS.h"
 #include "Debug.h"
@@ -38,7 +40,7 @@ uint64_t timeData = 0;
 unsigned long lastAttributePostTime = 0;
 
 /* Real-time clock */
-RTC rtc(RTC_CLK, RTC_DATA, RTC_RST, RTC_EN);
+DS1302RTC rtc(RTC_CLK, RTC_DATA, RTC_RST);
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -207,6 +209,11 @@ void setup() {
 	Wire.begin();
 
 	randomSeed(arandom());
+
+	pinMode(RTC_EN, OUTPUT);
+	digitalWrite(RTC_EN, HIGH);
+	/* set the time provider for the time library to the RTC */
+	setSyncProvider(rtc.get);
 
 	/* if the EEPROM is anything but 0 then reset all fields */
 	if(EEPROM.read(RESETEEPROM)) {
