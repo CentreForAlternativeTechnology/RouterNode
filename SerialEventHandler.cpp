@@ -6,11 +6,10 @@
 #include "SerialEventHandler.h"
 #include "EMonCMS.h"
 
-#define ASHORT(x) (((uint8_t *)(&(x)))[1] | (((uint8_t *)(&(x)))[0] << 8))
-
 extern int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item);
 extern float getDepth();
 
+#ifdef DEBUG
 void sendDebug(const char *str) {
 	int len = strlen(str);
 	if(len <= 255) {
@@ -21,16 +20,16 @@ void sendDebug(const char *str) {
 		Serial.write((const uint8_t *)str, len);
 	}
 }
+#endif
 
-int SerialEventHandler::freeRam() {
-	extern int __heap_start, *__brkval; 
-	int v; 
-	return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
+int16_t SerialEventHandler::freeRam() {
+	extern int16_t __heap_start, *__brkval; 
+	int16_t v; 
+	return (int16_t) &v - (__brkval == 0 ? (int16_t) &__heap_start : (int16_t) __brkval); 
 }
 
 SerialEventHandler::SerialEventHandler(DS1302RTC *rtc) {
 	this->rtc = rtc;
-	Serial.setTimeout(40);
 }
 
 SerialEventHandler::~SerialEventHandler() {
@@ -46,9 +45,14 @@ uint8_t *SerialEventHandler::readBytes(uint8_t size, uint8_t extra_space) {
 	return data_buffer;
 }
 
-void sendShort(short value) {
+void sendShort(int16_t value) {
 	Serial.write(value >> 8);
 	Serial.write(value & 0xFF);
+}
+
+int16_t receiveShort(uint8_t *inp) {
+	int16_t ret = ((int16_t)(inp[0]) << 8) | (int16_t)(inp[1]);
+	return ret;
 }
 
 void sendFloat(float value) {
@@ -67,31 +71,21 @@ float receiveFloat(uint8_t *inp) {
 
 void SerialEventHandler::parseSerial() {
 		/* Declare everything we might use in here */
-		char debugBuffer[64];
-		
 		uint8_t commandBytes[2];
 		uint8_t *data_buffer = NULL;
-		short tmp_int; 
-		uint8_t tmp_uchar;
 		DataItem item;
 		floatBytes flb;
 
-		time_t t;
 		tmElements_t tm;
+#ifdef DEBUG
+		char debugBuffer[128];
+#endif
 
 		/* Read the 2 command bytes */
 		if(Serial.available() > 1) {
 			Serial.readBytes((char *)commandBytes, (size_t)2);
 			switch(commandBytes[0]) {
 			case C_SETCLOCK:
-				/* buffer should be 7 bytes */
-				if(commandBytes[1] != 7) { 
-					break; 
-				}
-				data_buffer = readBytes(commandBytes[1]);
-				if(data_buffer[6] < 1 || data_buffer[6] > 7) { 
-					break; 
-				}
 				tm.Year = y2kYearToTm(data_buffer[0]);
 				tm.Month = data_buffer[1];
 				tm.Day = data_buffer[2];
@@ -99,8 +93,7 @@ void SerialEventHandler::parseSerial() {
 				tm.Minute = data_buffer[4];
 				tm.Second = data_buffer[5];
 				tm.Wday = data_buffer[6];
-				t = makeTime(tm);
-				rtc->set(t);
+				rtc->set(makeTime(tm));
 				break;
 			case C_GETCLOCK:
 				commandBytes[1] = 7;
@@ -119,56 +112,43 @@ void SerialEventHandler::parseSerial() {
 			case C_GETMEM:
 				commandBytes[1] = (uint8_t)0x02;
 				Serial.write(commandBytes, (size_t)2);
-				tmp_int = freeRam();
-				sendShort(tmp_int);
+				sendShort(freeRam());
 				break;
 			case C_GETPRESSURE:
 				commandBytes[1] = (uint8_t)0x02;
 				if(pressureAttributeReader(NULL, &item)) {
 					Serial.write(commandBytes, (size_t)2);
-					sendShort(*(short *)(item.item));
+					sendShort(*(int16_t *)(item.item));
 				}
 				break;
 			case C_GETEEPROM:
-				if(commandBytes[1] != 4) {
-					break;
-				}
 				data_buffer = readBytes(commandBytes[1]);
-				commandBytes[1] = ASHORT(data_buffer[2]) * 2 + 4;
+				commandBytes[1] = receiveShort(&(data_buffer[2])) * 2 + 4;
 				Serial.write(commandBytes, (size_t)2);
 				Serial.write(data_buffer, 4);
-				for(int i = ASHORT(data_buffer[0]); i < ASHORT(data_buffer[2]) + ASHORT(data_buffer[0]); i++) {
-					if(i < 1024) {
-						sendShort((short)(EEPROM.read(i)));
+				for(int16_t i = receiveShort(&(data_buffer[0])); i < receiveShort(&(data_buffer[2])) + receiveShort(&(data_buffer[0])); i++) {
+					if(i <= E2END) {
+						sendShort((int16_t)(EEPROM.read(i)));
 					} else {
 						sendShort(0);
 					}
 				}
 				break;
 			case C_SETEEPROM:
-				if(commandBytes[1] != 4) {
-					break;
-				}
 				data_buffer = readBytes(commandBytes[1]);
-				EEPROM.write(ASHORT(data_buffer[0]), (uint8_t)(ASHORT(data_buffer[2])));
+				EEPROM.write(receiveShort(&(data_buffer[0])), (uint8_t)(receiveShort(&(data_buffer[2]))));
 				break;
 			case C_SETPRESSUREGRADIENT:
-				if(commandBytes[1] != 4) {
-					break;
-				}
 				data_buffer = readBytes(commandBytes[1]);
 				flb.value = receiveFloat(data_buffer);
-				for(int i = 0; i < 4; i++) {
+				for(int16_t i = 0; i < 4; i++) {
 					EEPROM.write(EEPROM_CALIB_GRAD + i, flb.bytes[i]);
 				}
 				break;
 			case C_SETPRESSURECONSTANT:
-				if(commandBytes[1] != 4) {
-					break;
-				}
 				data_buffer = readBytes(commandBytes[1]);
 				flb.value = receiveFloat(data_buffer);
-				for(int i = 0; i < 4; i++) {
+				for(int16_t i = 0; i < 4; i++) {
 					EEPROM.write(EEPROM_CALIB_CONST + i, flb.bytes[i]);
 				}
 				break;

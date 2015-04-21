@@ -14,11 +14,6 @@
 #include "SerialEventHandler.h"
 #include "Sleep.h"
 
-#undef LOG(x)
-#define S_DEBUG
-#define DEBUG_INIT Serial.begin(115200);
-#define LOG(x) Serial.print(x)
-
 /* Radio and communication related definitions */
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
 RF24Network network(radio);
