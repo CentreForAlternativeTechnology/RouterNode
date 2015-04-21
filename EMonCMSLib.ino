@@ -12,7 +12,7 @@
 #include "Debug.h"
 #include "ARandom.h"
 #include "SerialEventHandler.h"
-//#include "Sleep.h"
+#include "Sleep.h"
 
 #undef LOG(x)
 #define S_DEBUG
@@ -50,8 +50,9 @@ unsigned long lastAttributePostTime = 0;
 DS1302RTC rtc(RTC_CLK, RTC_DATA, RTC_RST);
 
 DES des;
+
 /* Sleep controller */
-//Sleep s(&rtc, &radio, EEPROM_ALARM_START);
+Sleep s(&rtc, &radio, EEPROM_ALARM_START);
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -301,7 +302,7 @@ void setup() {
 
 void loop() {
 	/* See if it's sleeping time */
-	//s.checkSleep();
+	s.checkSleep();
 	
 	mesh.update();
 	/* check to see whether we have a node id */
