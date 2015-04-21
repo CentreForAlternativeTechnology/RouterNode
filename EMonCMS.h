@@ -10,7 +10,7 @@
 #include "Arduino.h"
 #endif
 
-#define T_USHORT(x) (*((unsigned short *)(x)))
+//#define T_USHORT(x) (*((unsigned short *)(x)))
 
 #define REGISTERREQUESTTIMEOUT 5000
 
@@ -56,16 +56,16 @@ enum RequestType {
  * Initial header of OEMan Low-power Radio spec packet
  **/
 typedef struct {
-	unsigned short dataSize; /** Size of the data items section in bytes **/
-	unsigned char status; /** The status, SUCCESS in requests **/
-	unsigned char dataCount; /** Number of data items **/
+	uint16_t dataSize; /** Size of the data items section in bytes **/
+	uint8_t status; /** The status, SUCCESS in requests **/
+	uint8_t dataCount; /** Number of data items **/
 } HeaderInfo;
 
 /**
  * A data item, consisting of a type and a pointer to data
  **/
 typedef struct {
-	unsigned char type;
+	uint8_t type;
 	void *item;
 } DataItem;
 
@@ -85,7 +85,7 @@ typedef struct {
  * @param length length of buffer
  * @return the length of the buffer on success
  **/
-typedef int (*NetworkSender)(uint8_t type, unsigned char *buffer, int length);
+typedef int16_t (*NetworkSender)(uint8_t type, uint8_t *buffer, int16_t length);
 
 /**
  * Function implemented by host program to retrieve the value of a piece of data.
@@ -95,12 +95,12 @@ typedef int (*NetworkSender)(uint8_t type, unsigned char *buffer, int length);
  * @param item the item that the implementation is expected to fill
  * @return 0 on success
  **/
-typedef int (*AttributeReader)(AttributeIdentifier *attr, DataItem *item);
+typedef bool (*AttributeReader)(AttributeIdentifier *attr, DataItem *item);
 
 /**
  * User implemented event which is triggered when the node ID is registered
  **/
-typedef void (*NodeIDRegistered)(unsigned short emonNodeID);
+typedef void (*NodeIDRegistered)(uint16_t emonNodeID);
 
 /**
  * User implemented event which is triggered when a attribute is successfully registered.
@@ -129,11 +129,11 @@ class EMonCMS {
 		 * @param nodeID defaults to 0, node id for emoncms
 		 **/
 		EMonCMS(AttributeValue values[],
-			int length, 
+			int16_t length, 
 			NetworkSender sender,
 			AttributeRegistered attrRegistered = NULL,
 			NodeIDRegistered nodeRegistered = NULL,
-			unsigned short nodeID = 0
+			uint16_t nodeID = 0
 			);
 		~EMonCMS();
 		/* methods for receiving packets */
@@ -141,7 +141,7 @@ class EMonCMS {
          * @param type type of incoming packet to check
          * @return true if it is an emon cms packet type
          **/
-		bool isEMonCMSPacket(unsigned char type);
+		bool isEMonCMSPacket(uint8_t type);
 		/**
 		 * Parses an incoming emon cms packet 
 		 * @param header incomiing emon cms header
@@ -150,7 +150,7 @@ class EMonCMS {
 		 * @param items a list of data items the size of count in the header
 		 * @return returns true if the function succeeded
 		 **/
-		bool parseEMonCMSPacket(HeaderInfo *header, uint8_t type, unsigned char *buffer, DataItem items[]);
+		bool parseEMonCMSPacket(HeaderInfo *header, uint8_t type, uint8_t *buffer, DataItem items[]);
 		/* methods for sending packets */
 		/**
 		 * Calculates the buffer size for the buffer passed to attrBuilder
@@ -159,7 +159,7 @@ class EMonCMS {
 		 * @param length length of list of data items
 		 * @return the size of the buffer
 		 **/
-		int attrSize(RequestType type, DataItem *item, int length);
+		uint16_t attrSize(RequestType type, DataItem *item, int16_t length);
 		/**
 		 * Creates a packet into the given buffer containing the given data items.
 		 * Items for each request type:
@@ -173,7 +173,7 @@ class EMonCMS {
 		 * @param buffer buffer to write packet into, including header
 		 * @return the size of the buffer on success
 		 **/
-		int attrBuilder(RequestType type, DataItem *items, int length, unsigned char *buffer);
+		uint16_t attrBuilder(RequestType type, DataItem *items, uint16_t length, uint8_t *buffer);
 		/**
 		 * Wraps attrBuilder and sends requests through the NetworkSender
 		 * @param type type of request to send
@@ -181,7 +181,7 @@ class EMonCMS {
 		 * @param length length of list of items to attach
 		 * @return the size of the sent data on success
 		 **/
-		int attrSender(RequestType type, DataItem *items, int length);
+		uint16_t attrSender(RequestType type, DataItem *items, uint16_t length);
 		/**
 		 * Converts and AttributeIdentifier to a list of DataItems.
 		 * @param ident the incoming Attribute Identifier
@@ -194,7 +194,7 @@ class EMonCMS {
 		 * Returns the assigned node ID
 		 * @return the node ID form emon cms
 		 **/
-		unsigned short getNodeID();
+		uint16_t getNodeID();
 		/**
 		 * Gets the data about an attribute including registration status
 		 * and the function to get it from an Attribute Identifier.
@@ -213,39 +213,35 @@ class EMonCMS {
 		 * @param b second attribute to compare
 		 * @return 0 if they are the same
 		 */
-		int compareAttribute(AttributeIdentifier *a, AttributeIdentifier *b);
+		int16_t compareAttribute(AttributeIdentifier *a, AttributeIdentifier *b);
 		/**
 		 * Reads an attribute value using it's reader and posts it.
 		 * @param ident identifier of attribute to post
 		 * @return the size of data sent on success
 		 */
-		int postAttribute(AttributeIdentifier *ident);
+		uint16_t postAttribute(AttributeIdentifier *ident);
 	protected:
-		unsigned short nodeID; /** the EMonCMS node ID **/
+		uint16_t nodeID; /** the EMonCMS node ID **/
 		AttributeValue *attrValues; /** list of registered attributes on this node **/
-		int attrValuesLength; /** length of list of registered attributes on this node **/
-		unsigned long lastRegisterRequest; /** time of last sent register request **/
+		uint16_t attrValuesLength; /** length of list of registered attributes on this node **/
+		uint32_t lastRegisterRequest; /** time of last sent register request **/
 		NetworkSender networkSender; /** function to send data to the radios **/
 		AttributeRegistered attrRegistered; /** attribute registered callback **/
 		NodeIDRegistered nodeRegistered; /** node registered callback **/
-		
-		/**
-		 * Compared the data count in the header to the size
-		 **/
-		bool checkHeader(HeaderInfo *header, unsigned char size);
+
 		/**
 		 * Gets the size of the item in a DataItem
 		 * @param type the type of item
 		 * @return the size of the given type
 		 **/
-		int getTypeSize(unsigned char type);
+		uint16_t getTypeSize(uint8_t type);
 		/**
 		 * Transfers a data item into a char array
 		 * @param item item to put in char array
 		 * @param buffer buffer to transfer to
 		 * @return size of transferred item on success
 		 **/
-		int dataItemToBuffer(DataItem *item, unsigned char *buffer);
+		uint16_t dataItemToBuffer(DataItem *item, uint8_t *buffer);
 		/**
 		 * Function to respond to a request for an attribute.
 		 * Sends through the NetworkSender specified in constructor.
@@ -257,7 +253,7 @@ class EMonCMS {
 		
 		#ifdef LINUX
 		time_t start_time;
-		unsigned long millis();
+		uint32_t millis();
 		#endif
 };
 

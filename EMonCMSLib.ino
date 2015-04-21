@@ -48,7 +48,7 @@ DES des;
 /* Sleep controller */
 Sleep s(&rtc, &radio, EEPROM_ALARM_START);
 
-int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+bool timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
 	timeData = millis();
 	item->type = ULONG;
@@ -57,7 +57,7 @@ int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	return true;
 }
 
-int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+bool pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	if(digitalRead(EN_PIN1) == LOW) {
 		digitalWrite(EN_PIN1, HIGH);
 		delay(250);
@@ -112,7 +112,7 @@ float getDepth() {
 	return depth;
 }
 
-int networkWriter(uint8_t type, unsigned char *buffer, int length) {
+int16_t networkWriter(uint8_t type, uint8_t *buffer, int length) {
 	int size = 0;
 	uint8_t *send_buffer = NULL;
 	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
@@ -145,7 +145,7 @@ int networkWriter(uint8_t type, unsigned char *buffer, int length) {
 	return length;
 }
 
-void nodeIDRegistered(unsigned short emonNodeID) {
+void nodeIDRegistered(uint16_t emonNodeID) {
 	/* save the node id into EEPROM */
 	EEPROM.write(EMONNODEIDEEPROM1, (emonNodeID >> 8) & 0xFF);
 	EEPROM.write(EMONNODEIDEEPROM2, (emonNodeID & 0xFF));
@@ -287,7 +287,7 @@ void setup() {
 
 	/* read the emoncms node id and init emonCMS */
 	LOG(F("Setting up emon lib... "));
-	unsigned short eMonNodeID = ((EEPROM.read(EMONNODEIDEEPROM1) & 0xFF) << 8) | (EEPROM.read(EMONNODEIDEEPROM2) & 0xFF);
+	uint16_t eMonNodeID = ((EEPROM.read(EMONNODEIDEEPROM1) & 0xFF) << 8) | (EEPROM.read(EMONNODEIDEEPROM2) & 0xFF);
 	emon = new EMonCMS(attrVal, NUM_ATTR, networkWriter, attributeRegistered, nodeIDRegistered, eMonNodeID);
 	LOG(F("done\r\n"));
 }
