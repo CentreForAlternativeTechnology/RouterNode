@@ -1,13 +1,14 @@
 #############################################################################
 #
-# Makefile for RF24Mesh on Raspberry Pi
+# Makefile for librf24network-bcm on Raspberry Pi
 #
-# Author:  TMRh20 
-# Date:    2014/09 
+# License: GPL (General Public License)
+# Author:  Charles-Henri Hallard 
+# Date:    2013/03/13 
 #
 # Description:
 # ------------
-# use make all and make install to install the library 
+# use make all and mak install to install the library 
 # You can change the install directory by editing the LIBDIR line
 #
 PREFIX=/usr/local
@@ -16,11 +17,11 @@ PREFIX=/usr/local
 # where to put the lib
 LIBDIR=$(PREFIX)/lib
 # lib name 
-LIB_RFN=librf24mesh
+LIB_RFN=librf24network
 # shared library name
 LIBNAME_RFN=$(LIB_RFN).so.1.0
 
-HEADER_DIR=${PREFIX}/include/RF24Mesh
+HEADER_DIR=${PREFIX}/include/RF24Network
 
 # Detect the Raspberry Pi from cpuinfo
 #Count the matches for BCM2708 or BCM2709 in cpuinfo
@@ -36,14 +37,14 @@ endif
 
 # make all
 # reinstall the library after each recompilation
-all: librf24mesh
+all: librf24network
 
 # Make the library
-librf24mesh: RF24Mesh.o
-	g++ -shared -Wl,-soname,$@.so.1 ${CCFLAGS} -o ${LIBNAME_RFN} $^ 
+librf24network: RF24Network.o
+	g++ -shared -Wl,-soname,$@.so.1 ${CCFLAGS} -o ${LIBNAME_RFN} $^ -lrf24-bcm
 
 # Library parts
-RF24Mesh.o: RF24Mesh.cpp
+RF24Network.o: RF24Network.cpp
 	g++ -Wall -fPIC ${CCFLAGS} -c $^
 
 # clear build files

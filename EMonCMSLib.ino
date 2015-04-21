@@ -4,15 +4,20 @@
 #include <SPI.h>
 #include <EEPROM.h>
 #include <Wire.h>
-#include <AESLib.h>
 #include <Time.h>
 #include <DS1302RTC.h>
+#include <DES.h>
 #include "Definitions.h"
 #include "EMonCMS.h"
 #include "Debug.h"
 #include "ARandom.h"
 #include "SerialEventHandler.h"
-#include "Sleep.h"
+//#include "Sleep.h"
+
+#undef LOG(x)
+#define S_DEBUG
+#define DEBUG_INIT Serial.begin(115200);
+#define LOG(x) Serial.print(x)
 
 /* Radio and communication related definitions */
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
@@ -20,7 +25,8 @@ RF24Network network(radio);
 RF24Mesh mesh(radio, network);
 
 unsigned char incoming_buffer[MAX_PACKET_SIZE];
-uint8_t encryptionKey[16];
+unsigned char outgoing_buffer[MAX_PACKET_SIZE];
+uint8_t encryptionKey[25];
 
 EMonCMS *emon = NULL;
 
@@ -43,8 +49,9 @@ unsigned long lastAttributePostTime = 0;
 /* Real-time clock */
 DS1302RTC rtc(RTC_CLK, RTC_DATA, RTC_RST);
 
+DES des;
 /* Sleep controller */
-Sleep s(&rtc, &radio, EEPROM_ALARM_START);
+//Sleep s(&rtc, &radio, EEPROM_ALARM_START);
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -114,11 +121,8 @@ int networkWriter(uint8_t type, unsigned char *buffer, int length) {
 	int size = 0;
 	uint8_t *send_buffer = NULL;
 	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
-		for(int i = 0; i < length; i++) {
-			incoming_buffer[i + 1] = buffer[i];
-		}
-		size = encryptPacket(incoming_buffer, length);
-		send_buffer = incoming_buffer;
+		size = encryptPacket(buffer, outgoing_buffer, length);
+		send_buffer = outgoing_buffer;
 	} else {
 		size = length;
 		send_buffer = buffer;
@@ -171,32 +175,42 @@ void programmingMode() {
 	}
 }
 
-int encryptPacket(uint8_t *data, uint8_t data_size) {
-	/* round to the nearest multiple of 16 */
-	int block_data_size = ((data_size / 16) + (data_size % 16) ? 1 : 0) * 16;
-	/* data starts at byte 1, 0 all padding bytes */
-	for(int i = data_size + 1; i < block_data_size + 1; i++) {
-		data[i] = 0;
+int encryptPacket(uint8_t *input, uint8_t *output, uint8_t data_size) {
+#ifdef S_DEBUG
+	char buff[8];
+	LOG(F("Unencrypted data is... "));
+	for(int i = 0; i < data_size; i++) {
+		sprintf(buff, "0x%x, ", input[i]);
+		LOG(buff);
 	}
-	data[0] = block_data_size / 16;
-	for(int i = 0; i < data[0]; i++) {
-		aes128_enc_single(encryptionKey, &(data[i * 16 + 1]));
+	LOG(F("\r\n"));
+#endif
+	output[0] = data_size + (8 - (data_size % 8)) - 1;
+	des.do_3des_encrypt(input, data_size, &(output[1]), encryptionKey);
+#ifdef S_DEBUG
+	LOG(F("Encrypted data is... "));
+	for(int i = 0; i < (data_size + (8 - (data_size % 8)) - 1); i++) {
+		sprintf(buff, "0x%x, ", (output[i + 1]));
+		LOG(buff);
 	}
-	return block_data_size + 1;
+	LOG(F("\r\n"));
+#endif
+	return data_size + (8 - (data_size % 8)) - 1;
 }
 
-bool decryptPacket(uint8_t type, uint8_t *data) {
-	if(type == 'E') {
-		if(!EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
-			LOG(F("Encrpytion disabled could not decrpyt incoming message\r\n"));
+bool decryptPacket(uint8_t *input, uint8_t *output, int read_size) {
+	if(!EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
+		LOG(F("Encryption disabled. Not decrypting incoming message\r\n"));
+		for(int i = 0; i < read_size; i++) {
+			output[i] = input[i];
+		}
+	} else {
+		int block_data_size = input[0] * 8;
+		if(read_size < block_data_size) {
+			LOG(F("Read size is less than block data size\r\n"));
 			return false;
-		}
-		int block_data_size = data[0] * 16;
-		for(int i = 0; i < data[0]; i++) {
-			aes128_dec_single(encryptionKey, &(data[i * 16 + 1]));
-		}
-		for(int i = 0; i < block_data_size; i++) {
-			data[i] = data[i + 1];
+		} else {
+			des.do_3des_decrypt(&(input[1]), block_data_size, output, encryptionKey, des.get_IV_int());
 		}
 	}
 	return true;
@@ -220,7 +234,7 @@ void setup() {
 	pinMode(RTC_EN, OUTPUT);
 	digitalWrite(RTC_EN, HIGH);
 	/* set the time provider for the time library to the RTC */
-	setSyncProvider(rtc.get);
+	//setSyncProvider(rtc.get);
 
 	/* if the EEPROM is anything but 0 then reset all fields */
 	if(EEPROM.read(RESETEEPROM)) {
@@ -243,19 +257,25 @@ void setup() {
 		DEBUG_INIT;
 	}
 
+	char keybuf[7];
 	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
-		for(int i = 0; i < 16; i++) {
+		LOG(F("READING ENCRYPTION KEY\r\n"));
+		for(int i = 0; i < 24; i++) {
 			encryptionKey[i] = EEPROM.read(EEPROM_ENCRYPT_KEY + i);
+			sprintf(keybuf, "0x%x, ", encryptionKey[i]);
+			LOG(keybuf);
 		}
+		LOG(F("\r\n"));
 	}
+	encryptionKey[24] = 0;
 	
 	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
 	mesh.setNodeID(EEPROM.read(RF24NODEIDEEPROM));
 	radio.begin();
-	radio.setPALevel(RF24_PA_MAX);
+	radio.setPALevel(RF24_PA_LOW);
 	
 	LOG(F("Connecting to mesh...\r\n"));
-	mesh.begin();
+	mesh.begin(MESH_DEFAULT_CHANNEL, RF24_1MBPS);
 
 	/* setup the time reading attribute */
 	attrVal[ATTR_TIME].attr.groupID = 10;
@@ -281,7 +301,7 @@ void setup() {
 
 void loop() {
 	/* See if it's sleeping time */
-	s.checkSleep();
+	//s.checkSleep();
 	
 	mesh.update();
 	/* check to see whether we have a node id */
@@ -301,37 +321,27 @@ void loop() {
 		network.peek(header);
 
 		if(emon->isEMonCMSPacket(header.type)) {
-			//HeaderInfo emonCMSHeader;
 			/* Setup an EMonCMS packet */
 			int read = 0;
 			if((read = network.read(header, incoming_buffer, MAX_PACKET_SIZE)) > sizeof(HeaderInfo)) {
-				decryptPacket(header.type, incoming_buffer);
-				if(((HeaderInfo *)incoming_buffer)->dataSize < (MAX_PACKET_SIZE - sizeof(HeaderInfo))) {
-					/* Setup buffers for storing the read data and parsing
-					 *  it to a reable format.
-					 */
-					//unsigned char buffer[emonCMSHeader.dataSize];
-					DataItem items[((HeaderInfo *)incoming_buffer)->dataCount];
-					//if((read = network.read(header, buffer, emonCMSHeader.dataSize)) == emonCMSHeader.dataSize) {
-					//	LOG(F("Failed to read entire EMonCMS data packet\r\n"));
-					//	LOG(F("Received ")); LOG(read); LOG(F(" bytes\r\n"));
-					//} else {
-					if(((HeaderInfo *)incoming_buffer)->dataSize > (read - sizeof(HeaderInfo))) {
+				decryptPacket(incoming_buffer, outgoing_buffer, read);
+				if(((HeaderInfo *)outgoing_buffer)->dataSize < (MAX_PACKET_SIZE - sizeof(HeaderInfo))) {
+					DataItem items[((HeaderInfo *)outgoing_buffer)->dataCount];
+					if(((HeaderInfo *)outgoing_buffer)->dataSize > (read - sizeof(HeaderInfo))) {
 						LOG(F("Size mismatch for incoming packet\r\n"));
 						LOG(F("Received ")); LOG(read - sizeof(HeaderInfo));
-						LOG(F(" expected ")); LOG(((HeaderInfo *)incoming_buffer)->dataSize);
+						LOG(F(" expected ")); LOG(((HeaderInfo *)outgoing_buffer)->dataSize);
 						LOG(F("\r\n"));
 					} else {
 						LOG(F("Parsing incoming packet...\r\n"));
-						if(!emon->parseEMonCMSPacket(((HeaderInfo *)incoming_buffer),
+						if(!emon->parseEMonCMSPacket(((HeaderInfo *)outgoing_buffer),
 							header.type,
-							&(incoming_buffer[sizeof(HeaderInfo)]),
+							&(outgoing_buffer[sizeof(HeaderInfo)]),
 							items))
 						{
 							LOG(F("Failed to parse EMonCMS packet\r\n"));
 						}
 					}
-					//}
 				} else {
 					LOG(F("Received packet too large, discarding\r\n"));
 					network.read(header,0,0); 
