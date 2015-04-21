@@ -12,7 +12,11 @@
 #include "Debug.h"
 #include "ARandom.h"
 #include "SerialEventHandler.h"
-#include "Sleep.h"
+//#include "Sleep.h"
+
+#undef LOG(x)
+#define DEBUG_INIT Serial.begin(115200);
+#define LOG(x) Serial.print(x)
 
 /* Radio and communication related definitions */
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
@@ -44,7 +48,7 @@ unsigned long lastAttributePostTime = 0;
 DS1302RTC rtc(RTC_CLK, RTC_DATA, RTC_RST);
 
 /* Sleep controller */
-Sleep s(&rtc, &radio, EEPROM_ALARM_START);
+//Sleep s(&rtc, &radio, EEPROM_ALARM_START);
 
 int timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -220,7 +224,7 @@ void setup() {
 	pinMode(RTC_EN, OUTPUT);
 	digitalWrite(RTC_EN, HIGH);
 	/* set the time provider for the time library to the RTC */
-	setSyncProvider(rtc.get);
+	//setSyncProvider(rtc.get);
 
 	/* if the EEPROM is anything but 0 then reset all fields */
 	if(EEPROM.read(RESETEEPROM)) {
@@ -252,7 +256,7 @@ void setup() {
 	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
 	mesh.setNodeID(EEPROM.read(RF24NODEIDEEPROM));
 	radio.begin();
-	radio.setPALevel(RF24_PA_MAX);
+	radio.setPALevel(RF24_PA_LOW);
 	
 	LOG(F("Connecting to mesh...\r\n"));
 	mesh.begin();
@@ -281,7 +285,7 @@ void setup() {
 
 void loop() {
 	/* See if it's sleeping time */
-	s.checkSleep();
+	//s.checkSleep();
 	
 	mesh.update();
 	/* check to see whether we have a node id */
