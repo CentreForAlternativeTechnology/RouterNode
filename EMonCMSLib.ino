@@ -9,9 +9,11 @@
 #include <DES.h>
 #include <EMonCMS.h>
 #include "Definitions.h"
-#include "Debug.h"
 #include "SerialEventHandler.h"
 #include "Sleep.h"
+
+#define DEBUG
+#include "Debug.h"
 
 /* Radio and communication related definitions */
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
@@ -134,9 +136,15 @@ uint16_t networkWriter(uint8_t type, uint8_t *buffer, uint16_t length) {
 		}
     }
 #ifdef DEBUG
+	LOG(F("Unencrypted...\r\n"));
 	char sbuff[7];
 	for(int i = 0; i < length; i++) {
 		sprintf(sbuff, "0x%x, ", buffer[i]);
+		LOG(sbuff);
+	}
+	LOG(F("\r\nEncrypted/Sent...\r\n"));
+	for(int i = 0; i < size; i++) {
+		sprintf(sbuff, "0x%x, ", send_buffer[i]);
 		LOG(sbuff);
 	}
 	LOG(F("\r\n"));
@@ -260,7 +268,7 @@ void setup() {
 		}
 		LOG(F("\r\n"));
 	}
-	encryptionKey[24] = 0;
+	//encryptionKey[24] = 0;
 	
 	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
 	mesh.setNodeID(EEPROM.read(RF24NODEIDEEPROM));
