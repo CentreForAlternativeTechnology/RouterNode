@@ -70,13 +70,9 @@ float receiveFloat(uint8_t *inp) {
 }
 
 void SerialEventHandler::parseSerial() {
-		/* Declare everything we might use in here */
 		uint8_t commandBytes[2];
 		uint8_t *data_buffer = NULL;
-		DataItem item;
-		floatBytes flb;
-
-		tmElements_t tm;
+		
 #ifdef DEBUG
 		char debugBuffer[128];
 #endif
@@ -86,6 +82,7 @@ void SerialEventHandler::parseSerial() {
 			Serial.readBytes((char *)commandBytes, (size_t)2);
 			switch(commandBytes[0]) {
 			case C_SETCLOCK:
+				tmElements_t tm;
 				tm.Year = y2kYearToTm(data_buffer[0]);
 				tm.Month = data_buffer[1];
 				tm.Day = data_buffer[2];
@@ -115,10 +112,11 @@ void SerialEventHandler::parseSerial() {
 				sendShort(freeRam());
 				break;
 			case C_GETPRESSURE:
+				DataItem getItem;
 				commandBytes[1] = (uint8_t)0x02;
-				if(pressureAttributeReader(NULL, &item)) {
+				if(pressureAttributeReader(NULL, &getItem)) {
 					Serial.write(commandBytes, (size_t)2);
-					sendShort(*(int16_t *)(item.item));
+					sendShort(*(int16_t *)(getItem.item));
 				}
 				break;
 			case C_GETEEPROM:
@@ -139,6 +137,7 @@ void SerialEventHandler::parseSerial() {
 				EEPROM.write(receiveShort(&(data_buffer[0])), (uint8_t)(receiveShort(&(data_buffer[2]))));
 				break;
 			case C_SETPRESSUREGRADIENT:
+				floatBytes flb;
 				data_buffer = readBytes(commandBytes[1]);
 				flb.value = receiveFloat(data_buffer);
 				for(int16_t i = 0; i < 4; i++) {
@@ -153,12 +152,14 @@ void SerialEventHandler::parseSerial() {
 				}
 				break;
 			case C_SETPRESSUREBASE:
-				if(pressureAttributeReader(NULL, &item)) {
-					EEPROM.write(EEPROM_CALIB_BASE, ((uint8_t *)(item.item))[0]);
-					EEPROM.write(EEPROM_CALIB_BASE + 1, ((uint8_t *)(item.item))[1]);
+				DataItem setItem;
+				if(pressureAttributeReader(NULL, &setItem)) {
+					EEPROM.write(EEPROM_CALIB_BASE, ((uint8_t *)(setItem.item))[0]);
+					EEPROM.write(EEPROM_CALIB_BASE + 1, ((uint8_t *)(setItem.item))[1]);
 				}
 				break;
 			case C_GETDEPTH:
+				DataItem item;
 				if(pressureAttributeReader(NULL, &item)) {
 					commandBytes[1] = 4;
 					Serial.write(commandBytes, 2);
