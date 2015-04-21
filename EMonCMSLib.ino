@@ -10,7 +10,6 @@
 #include "Definitions.h"
 #include "EMonCMS.h"
 #include "Debug.h"
-#include "ARandom.h"
 #include "SerialEventHandler.h"
 #include "Sleep.h"
 
@@ -224,13 +223,11 @@ void setup() {
 
 	Wire.begin();
 
-	randomSeed(arandom());
-
 	/* Enable the RTC */
 	pinMode(RTC_EN, OUTPUT);
 	digitalWrite(RTC_EN, HIGH);
-	/* set the time provider for the time library to the RTC */
-	//setSyncProvider(rtc.get);
+
+	randomSeed(rtc.get());
 
 	/* if the EEPROM is anything but 0 then reset all fields */
 	if(EEPROM.read(RESETEEPROM)) {
