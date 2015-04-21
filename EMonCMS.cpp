@@ -51,8 +51,12 @@ int EMonCMS::compareAttribute(AttributeIdentifier *a, AttributeIdentifier *b) {
 }
 
 void EMonCMS::registerNode() {
+	/* Firstly check whether the previous request has timed out */
 	if((millis() - this->lastRegisterRequest) > REGISTERREQUESTTIMEOUT) {
 		LOG(F("registerNode: enter\r\n"));
+		/* See whether the node ID is the default value or has been registered.
+		 *  If it has not been registered, send node ID register request.
+		 */
 		if(this->nodeID == 0) {
 			LOG(F("registerNode: registering node\r\n"));
 			if(this->attrSender(NODE_REGISTER, NULL, 0) > 0) {
@@ -63,19 +67,26 @@ void EMonCMS::registerNode() {
 			LOG(F("registerNode: request sent\r\n"));
 			this->lastRegisterRequest = millis();
 		} else {
-			for(int16_t i = 0; i < attrValuesLength; i++) {
+			/* For each attribute send a registration request */
+			for(uint16_t i = 0; i < attrValuesLength; i++) {
 				LOG(F("registerNode: attr: ")); LOG(i); LOG(F("\r\n"));
-				
+
+				/* If the attribute isn't registered */
 				if(!this->attrValues[i].registered) {
 					DataItem regItems[4];
-					
+
+					/* Convert it's identifier to data items */
 					this->attrIdentAsDataItems(&(this->attrValues[i].attr), regItems);
-					
+
+					/* Read the value, this will be the default */
 					if(!this->attrValues[i].reader(&(this->attrValues[i].attr), &(regItems[3]))) {
 						LOG(F("registerNode: Failed to register attribute\r\n"));
 					} else {
 						LOG(F("registerNode: registering attribute ")); LOG(i); LOG(F("\r\n"));
-						
+
+						/* If the value has been read and placed into data items,
+						 *  send register request.
+						 */
 						if(this->attrSender(ATTR_REGISTER, regItems, 4) > 0) {
 							LOG(F("registerNode: Sent attribute register request\r\n"));
 						} else {
@@ -97,7 +108,10 @@ void EMonCMS::registerNode() {
 }
 
 AttributeValue *EMonCMS::getAttribute(AttributeIdentifier *attr) {
-	for(int16_t i = 0; i < this->attrValuesLength; i++) {
+	/* Go through each registered attribute and compare to the given
+	 *  attribute identifier to get extra details such as reader.
+	 */
+	for(uint16_t i = 0; i < this->attrValuesLength; i++) {
 		if(this->compareAttribute(&(this->attrValues[i].attr), attr) == 0) {
 			return &(this->attrValues[i]);
 		}
@@ -130,9 +144,10 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 	
 	Status status = SUCCESS;
 
-	/* first do we have attribute, if not send back packet with error */
+	/* first do we have the attribute, if not send back packet with error */
 	AttributeValue *attrVal = this->getAttribute(&ident);
 	DataItem item;
+	
 	if(attrVal == NULL) {
 		status = UNSUPPORTED_ATTRIBUTE;
 	} else if(!attrVal->reader(&ident, &item)) {
@@ -155,11 +170,13 @@ bool EMonCMS::requestAttribute(HeaderInfo *header, DataItem items[]) {
 		}
 	} else {
 		DataItem responseItems[4];
+
+		/* Move the attribute identifier items to the response items */
 		memcpy(responseItems, items, sizeof(DataItem) * 3);
 		responseItems[3].type = item.type;
 		responseItems[3].item = item.item;
 		
-		int16_t size = attrSize(ATTR_POST, responseItems, 4);
+		uint16_t size = attrSize(ATTR_POST, responseItems, 4);
 		uint8_t responseBuffer[size];
 		
 		if(attrBuilder(ATTR_POST, responseItems, 4, responseBuffer) != size) {
@@ -197,16 +214,16 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, uint8_t type, uint8_t *buff
 		}
 	}
 
+	if(header->status != SUCCESS) {
+		LOG(F("Server did not return/set valid success code\r\n"));
+	}
+
 	switch(type) {
 		case 'r':
-			if(header->status != SUCCESS) {
-				LOG(F("Server did not return valid status code (node register)\r\n"));
-			} else {
-				this->nodeID = *(uint16_t *)(items[0].item);
-				LOG(F("emonCMSNodeID = ")); LOG(this->nodeID); LOG(F("\r\n"));
-				if(this->nodeRegistered != NULL) {
-					this->nodeRegistered(this->nodeID);
-				}
+			this->nodeID = *(uint16_t *)(items[0].item);
+			LOG(F("emonCMSNodeID = ")); LOG(this->nodeID); LOG(F("\r\n"));
+			if(this->nodeRegistered != NULL) {
+				this->nodeRegistered(this->nodeID);
 			}
 			break;
 		case 'P':
@@ -216,22 +233,21 @@ bool EMonCMS::parseEMonCMSPacket(HeaderInfo *header, uint8_t type, uint8_t *buff
 			}
 			break;
 		case 'a':
-			if(header->status != SUCCESS) {
-				LOG(F("Server did not return success for attribute register\r\n"));
-			} else {
-				AttributeIdentifier ident;
-				ident.groupID = *(uint16_t *)(items[1].item);
-				ident.attributeID = *(uint16_t *)(items[2].item);
-				ident.attributeNumber = *(uint16_t *)(items[3].item);
-				LOG(F("Attribute registration response success\r\n"));
-				if(getAttribute(&ident) != NULL) {
-					getAttribute(&ident)->registered = 1;
-					if(this->attrRegistered != NULL) {
-						this->attrRegistered(&ident);
-					}
-				} else {
-					LOG(F("Attribute not found in list\r\n"));
+			AttributeIdentifier ident;
+			ident.groupID = *(uint16_t *)(items[1].item);
+			ident.attributeID = *(uint16_t *)(items[2].item);
+			ident.attributeNumber = *(uint16_t *)(items[3].item);
+			
+			LOG(F("Attribute registration response success\r\n"));
+			
+			if(getAttribute(&ident) != NULL) {
+				getAttribute(&ident)->registered = 1;
+				/* Tell the callback registration succeeded */
+				if(this->attrRegistered != NULL) {
+					this->attrRegistered(&ident);
 				}
+			} else {
+				LOG(F("Attribute not found in list\r\n"));
 			}
 			break;
 		case 'p':
@@ -252,7 +268,9 @@ uint16_t EMonCMS::getNodeID() {
 }
 
 uint16_t EMonCMS::attrSize(RequestType type, DataItem *item, int length) {
+	/* Initial size is the header size */
 	uint16_t size = sizeof(HeaderInfo);
+	/* On top of that is the size of each items data and it's type identifier */
 	for(uint16_t i = 0; i < length; i++) {
 		size += this->getTypeSize(item[i].type) + 1; /* Actual data size plus type */
 	}
