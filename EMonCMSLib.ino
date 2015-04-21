@@ -259,7 +259,7 @@ void setup() {
 	radio.setPALevel(RF24_PA_LOW);
 	
 	LOG(F("Connecting to mesh...\r\n"));
-	mesh.begin();
+	mesh.begin(MESH_DEFAULT_CHANNEL, RF24_250KBPS);
 
 	/* setup the time reading attribute */
 	attrVal[ATTR_TIME].attr.groupID = 10;
