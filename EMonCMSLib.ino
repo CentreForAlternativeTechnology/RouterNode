@@ -22,7 +22,7 @@ RF24Mesh mesh(radio, network);
 
 unsigned char incoming_buffer[MAX_PACKET_SIZE];
 unsigned char outgoing_buffer[MAX_PACKET_SIZE];
-uint8_t encryptionKey[25];
+uint8_t encryptionKey[24];
 
 EMonCMS *emon = NULL;
 
@@ -59,7 +59,7 @@ bool timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	return true;
 }
 
-bool pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+int16_t getRawPressure() {
 	if(digitalRead(EN_PIN1) == LOW) {
 		digitalWrite(EN_PIN1, HIGH);
 		delay(250);
@@ -72,14 +72,22 @@ bool pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 		}
 		
 		sensorReading = (buffer[1] << 8) | buffer[0];
-		if(item != NULL) {
-  			item->item = &sensorReading;
-			item->type = USHORT;
-		}
 		LOG(F("pressureAttributeReader: value read as ")); LOG(sensorReading); LOG(F("\r\n"));
-  		return true;
+  		return sensorReading;
 	} else {
-		LOG(F("pressureAttributeReader: Sensor read failed\r\n"));
+		LOG(F("getRawPressure: Sensor read failed\r\n"));
+		return 0;
+	}
+}
+
+bool pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+	if(getRawPressure() > 0 && item != NULL) {
+  		/* conversion from meters to kPa at 4deg c */
+  		float kpa = getDepth() * 0.10197442889f;
+  		item->item = &kpa;
+		item->type = FLOAT;
+		return true;
+	} else {
 		return false;
 	}
 }
@@ -268,12 +276,11 @@ void setup() {
 		}
 		LOG(F("\r\n"));
 	}
-	//encryptionKey[24] = 0;
 	
 	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
 	mesh.setNodeID(EEPROM.read(RF24NODEIDEEPROM));
 	radio.begin();
-	radio.setPALevel(RF24_PA_LOW);
+	radio.setPALevel(RF24_PA_MAX);
 	
 	LOG(F("Connecting to mesh...\r\n"));
 	mesh.begin(MESH_DEFAULT_CHANNEL, RF24_1MBPS);

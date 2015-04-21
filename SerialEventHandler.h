@@ -2,7 +2,7 @@
 #define __SERIALEVENTHANDLER_H__
 
 #include <DS1302RTC.h>
-#include "Arduino.h"
+#include <Arduino.h>
 
 /* commands */
 /* layout is 1 byte command, 1 byte data length, then data */

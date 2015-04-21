@@ -7,7 +7,7 @@
 #include "SerialEventHandler.h"
 #include "Definitions.h"
 
-extern int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item);
+extern int16_t getRawPressure();
 extern float getDepth();
 
 #ifdef DEBUG
@@ -113,12 +113,9 @@ void SerialEventHandler::parseSerial() {
 				sendShort(freeRam());
 				break;
 			case C_GETPRESSURE:
-				DataItem getItem;
 				commandBytes[1] = (uint8_t)0x02;
-				if(pressureAttributeReader(NULL, &getItem)) {
-					Serial.write(commandBytes, (size_t)2);
-					sendShort(*(int16_t *)(getItem.item));
-				}
+				Serial.write(commandBytes, (size_t)2);
+				sendShort(getRawPressure());
 				break;
 			case C_GETEEPROM:
 				data_buffer = readBytes(commandBytes[1]);
@@ -153,15 +150,13 @@ void SerialEventHandler::parseSerial() {
 				}
 				break;
 			case C_SETPRESSUREBASE:
-				DataItem setItem;
-				if(pressureAttributeReader(NULL, &setItem)) {
-					EEPROM.write(EEPROM_CALIB_BASE, ((uint8_t *)(setItem.item))[0]);
-					EEPROM.write(EEPROM_CALIB_BASE + 1, ((uint8_t *)(setItem.item))[1]);
-				}
+				int16_t raw_pressure;
+				raw_pressure = getRawPressure();
+				EEPROM.write(EEPROM_CALIB_BASE, ((uint8_t *)(&raw_pressure))[0]);
+				EEPROM.write(EEPROM_CALIB_BASE + 1, ((uint8_t *)(&raw_pressure))[1]);
 				break;
 			case C_GETDEPTH:
-				DataItem item;
-				if(pressureAttributeReader(NULL, &item)) {
+				if(getRawPressure() > 0) {
 					commandBytes[1] = 4;
 					Serial.write(commandBytes, 2);
 					sendFloat(getDepth());
