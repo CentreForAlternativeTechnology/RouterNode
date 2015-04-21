@@ -1,16 +1,13 @@
 #ifndef __EMONCMS_H__
 #define __EMONCMS_H__
 
-#include "Debug.h"
-
 #ifdef LINUX
 #include <time.h>
 #include <cstring>
+#include <stdint.h>
 #else
 #include "Arduino.h"
 #endif
-
-//#define T_USHORT(x) (*((unsigned short *)(x)))
 
 #define REGISTERREQUESTTIMEOUT 5000
 
@@ -85,7 +82,7 @@ typedef struct {
  * @param length length of buffer
  * @return the length of the buffer on success
  **/
-typedef int16_t (*NetworkSender)(uint8_t type, uint8_t *buffer, int16_t length);
+typedef uint16_t (*NetworkSender)(uint8_t type, uint8_t *buffer, uint16_t length);
 
 /**
  * Function implemented by host program to retrieve the value of a piece of data.
@@ -159,7 +156,7 @@ class EMonCMS {
 		 * @param length length of list of data items
 		 * @return the size of the buffer
 		 **/
-		uint16_t attrSize(RequestType type, DataItem *item, int16_t length);
+		uint16_t attrSize(RequestType type, DataItem *item, uint16_t length);
 		/**
 		 * Creates a packet into the given buffer containing the given data items.
 		 * Items for each request type:
@@ -253,7 +250,7 @@ class EMonCMS {
 		
 		#ifdef LINUX
 		time_t start_time;
-		uint32_t millis();
+		unsigned long millis();
 		#endif
 };
 

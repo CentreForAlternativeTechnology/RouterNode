@@ -42,7 +42,7 @@ uint16_t EMonCMS::getTypeSize(uint8_t type) {
 	}
 }
 
-int EMonCMS::compareAttribute(AttributeIdentifier *a, AttributeIdentifier *b) {
+int16_t EMonCMS::compareAttribute(AttributeIdentifier *a, AttributeIdentifier *b) {
 	if(a == NULL || b == NULL) {
 		return 1;
 	}
@@ -267,7 +267,7 @@ uint16_t EMonCMS::getNodeID() {
 	return this->nodeID;
 }
 
-uint16_t EMonCMS::attrSize(RequestType type, DataItem *item, int length) {
+uint16_t EMonCMS::attrSize(RequestType type, DataItem *item, uint16_t length) {
 	/* Initial size is the header size */
 	uint16_t size = sizeof(HeaderInfo);
 	/* On top of that is the size of each items data and it's type identifier */

@@ -5,6 +5,7 @@
 #include <Wire.h>
 #include "SerialEventHandler.h"
 #include "EMonCMS.h"
+#include "Definitions.h"
 
 extern int pressureAttributeReader(AttributeIdentifier *attr, DataItem *item);
 extern float getDepth();

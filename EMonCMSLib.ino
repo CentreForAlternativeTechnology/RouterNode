@@ -112,7 +112,7 @@ float getDepth() {
 	return depth;
 }
 
-int16_t networkWriter(uint8_t type, uint8_t *buffer, int length) {
+uint16_t networkWriter(uint8_t type, uint8_t *buffer, uint16_t length) {
 	int size = 0;
 	uint8_t *send_buffer = NULL;
 	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {

@@ -132,12 +132,13 @@ bool testSetNodeID() {
 	
 }
 
-int fakeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
+bool fakeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	item->type = INT;
 	item->item = &globalFakeReading;
+	return true;
 }
 
-int fakeNetworkSender(unsigned char type, unsigned char *buffer, int length) {
+uint16_t fakeNetworkSender(uint8_t type, uint8_t *buffer, uint16_t length) {
 	memcpy(tmpBuffer, buffer, length);
 	bufferSize = length;
 }
