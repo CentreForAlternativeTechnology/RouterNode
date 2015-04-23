@@ -48,7 +48,7 @@ DS1302RTC rtc(RTC_CLK, RTC_DATA, RTC_RST);
 DES des;
 
 /* Sleep controller */
-Sleep s(&rtc, &radio, EEPROM_ALARM_START);
+Sleep sleep(&rtc, &radio, EEPROM_ALARM_START);
 
 bool timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
@@ -84,8 +84,12 @@ bool pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	if(getRawPressure() > 0 && item != NULL) {
   		/* conversion from meters to kPa at 4deg c */
   		float kpa = getDepth() * 0.10197442889f;
+  		/*
   		item->item = &kpa;
 		item->type = FLOAT;
+		*/
+		item->item = &sensorReading;
+		item->type = USHORT;
 		return true;
 	} else {
 		return false;
@@ -206,7 +210,7 @@ int encryptPacket(uint8_t *input, uint8_t *output, uint8_t data_size) {
 	}
 	LOG(F("\r\n"));
 #endif
-	return data_size + (8 - (data_size % 8)) - 1;
+	return data_size + (8 - (data_size % 8));
 }
 
 bool decryptPacket(uint8_t *input, uint8_t *output, int read_size) {
@@ -280,7 +284,7 @@ void setup() {
 	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
 	mesh.setNodeID(EEPROM.read(RF24NODEIDEEPROM));
 	radio.begin();
-	radio.setPALevel(RF24_PA_MAX);
+	radio.setPALevel(RF24_PA_HIGH);
 	
 	LOG(F("Connecting to mesh...\r\n"));
 	mesh.begin(MESH_DEFAULT_CHANNEL, RF24_1MBPS);
@@ -309,7 +313,7 @@ void setup() {
 
 void loop() {
 	/* See if it's sleeping time */
-	s.checkSleep();
+	sleep.checkSleep();
 	
 	mesh.update();
 	/* check to see whether we have a node id */
