@@ -21,7 +21,7 @@
 #define EEPROM_ENCRYPT_ENABLE 14
 #define EEPROM_ENCRYPT_KEY 15
 
-#define EEPROM_ALARM_START 20
+#define EEPROM_ALARM_START 40
 
 /* Enable pins on communication connector */
 #define EN_PIN1 10
