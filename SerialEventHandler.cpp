@@ -84,6 +84,7 @@ void SerialEventHandler::parseSerial() {
 			switch(commandBytes[0]) {
 			case C_SETCLOCK:
 				tmElements_t tm;
+				data_buffer = readBytes(commandBytes[1]);
 				tm.Year = y2kYearToTm(data_buffer[0]);
 				tm.Month = data_buffer[1];
 				tm.Day = data_buffer[2];
