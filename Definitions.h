@@ -48,14 +48,4 @@
 /* Pin for collecting random data */
 #define RAND_PIN A7
 
-union floatBytes {
-	uint8_t bytes[4];
-	float value;
-};
-
-union intBytes {
-	uint8_t bytes[2];
-	int value;
-};
-
 #endif

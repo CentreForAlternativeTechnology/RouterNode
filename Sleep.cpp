@@ -15,12 +15,15 @@ Sleep::Sleep(DS1302RTC *rtc, RF24 *radio, int wakeTimesAddress) {
 	if(this->wakeLength == 0) {
 		this->wakeLength = 0xFF;
 	}
+	/* get the number of alarms */
 	this->numWakeTimes = EEPROM.read(wakeTimesAddress + 1);
+	/* if there are alarms allocate memory for them */
 	if(numWakeTimes > 0) {
 		this->wakeTimes = (WakeTime *)malloc(sizeof(WakeTime) * numWakeTimes);
 	} else {
 		this->wakeTimes = NULL;
 	}
+	/* read the alarms from EEPROM to ram */
 	for(int i = 0; i < this->numWakeTimes; i++) {
 		this->wakeTimes[i].hour = EEPROM.read((i * 2) + 2 + wakeTimesAddress);
 		this->wakeTimes[i].minute = EEPROM.read((i * 2) + 3 + wakeTimesAddress);
@@ -28,8 +31,11 @@ Sleep::Sleep(DS1302RTC *rtc, RF24 *radio, int wakeTimesAddress) {
 }
 
 Sleep::~Sleep() {
-	free(this->wakeTimes);
-	this->wakeTimes = NULL;
+	/* free the alarms stored in ram */
+	if(this->wakeTimes != NULL) {
+		free(this->wakeTimes);
+		this->wakeTimes = NULL;
+	}
 }
 
 void Sleep::enableSleep() {
@@ -69,21 +75,26 @@ void Sleep::setupSleep() {
 
 void Sleep::sleepUntil(time_t untilTime) {
 	time_t currentTime;
-	/* Sensor is powered up when needed */
+	/* [pwer down all peripherals */
 	digitalWrite(EN_PIN1, LOW);
 	digitalWrite(EN_PIN2, LOW);
 	digitalWrite(RTC_EN, LOW);
 	radio->powerDown();
 
+	/* setup sleep registers of atmega */
 	this->setupSleep();
 
+	/* sleep until the next wake time is reached */
 	do {
+		/* actually sleep */
 		this->enableSleep();
+		/* enable rtc and get fresh time */
 		digitalWrite(RTC_EN, HIGH);
 		currentTime = rtc->get();
 		digitalWrite(RTC_EN, LOW);
 	} while(untilTime > currentTime);
 
+	/* enable peripherals on leaving sleep */
 	digitalWrite(RTC_EN, HIGH);
 	digitalWrite(EN_PIN1, HIGH);
 

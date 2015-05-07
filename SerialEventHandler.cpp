@@ -7,10 +7,18 @@
 #include "SerialEventHandler.h"
 #include "Definitions.h"
 
+/* these are functions in the main sketch that we want to use here */
 extern int16_t getRawPressure();
 extern float getDepth();
 
+/* used for easily converting between float and bytes */
+union floatBytes {
+	uint8_t bytes[4];
+	float value;
+};
+
 #ifdef DEBUG
+/* creates a debug type message for the configuration program */
 void sendDebug(const char *str) {
 	int len = strlen(str);
 	if(len <= 255) {
@@ -46,22 +54,26 @@ uint8_t *SerialEventHandler::readBytes(uint8_t size, uint8_t extra_space) {
 	return data_buffer;
 }
 
+/* covnerts a short to bytes and writes it */
 void sendShort(int16_t value) {
 	Serial.write(value >> 8);
 	Serial.write(value & 0xFF);
 }
 
+/* converts bytes to a short */
 int16_t receiveShort(uint8_t *inp) {
 	int16_t ret = ((int16_t)(inp[0]) << 8) | (int16_t)(inp[1]);
 	return ret;
 }
 
+/* converts a float to bytes and sends it */
 void sendFloat(float value) {
 	floatBytes b;
 	b.value = value;
 	Serial.write(b.bytes, 4);
 }
 
+/* converts bytes into a float */
 float receiveFloat(uint8_t *inp) {
 	floatBytes b;
 	for(int i = 0; i < 4; i++) {
@@ -82,6 +94,7 @@ void SerialEventHandler::parseSerial() {
 		if(Serial.available() > 1) {
 			Serial.readBytes((char *)commandBytes, (size_t)2);
 			switch(commandBytes[0]) {
+			/* sets the RTC to the time received */
 			case C_SETCLOCK:
 				tmElements_t tm;
 				data_buffer = readBytes(commandBytes[1]);
@@ -95,6 +108,7 @@ void SerialEventHandler::parseSerial() {
 				rtc->set(makeTime(tm));
 				break;
 			case C_GETCLOCK:
+				/* gets the RTC and converts the time to bytes, sends it back */
 				commandBytes[1] = 7;
 				data_buffer = (uint8_t *)malloc(sizeof(uint8_t) * 7);
 				rtc->read(tm);
@@ -109,16 +123,19 @@ void SerialEventHandler::parseSerial() {
 				Serial.write(data_buffer, 7);
 				break;
 			case C_GETMEM:
+				/* sends the amount of free memory back */
 				commandBytes[1] = (uint8_t)0x02;
 				Serial.write(commandBytes, (size_t)2);
 				sendShort(freeRam());
 				break;
 			case C_GETPRESSURE:
+				/* sends the raw pressure reading back */
 				commandBytes[1] = (uint8_t)0x02;
 				Serial.write(commandBytes, (size_t)2);
 				sendShort(getRawPressure());
 				break;
 			case C_GETEEPROM:
+				/* gets a section of EEPROM and writes it to serial */
 				data_buffer = readBytes(commandBytes[1]);
 				commandBytes[1] = receiveShort(&(data_buffer[2])) * 2 + 4;
 				Serial.write(commandBytes, (size_t)2);
@@ -132,10 +149,12 @@ void SerialEventHandler::parseSerial() {
 				}
 				break;
 			case C_SETEEPROM:
+				/* sets a single value on EEPROM */
 				data_buffer = readBytes(commandBytes[1]);
 				EEPROM.write(receiveShort(&(data_buffer[0])), (uint8_t)(receiveShort(&(data_buffer[2]))));
 				break;
 			case C_SETPRESSUREGRADIENT:
+				/* reads pressure gradient from serial and writes it to EEPROM */
 				floatBytes flb;
 				data_buffer = readBytes(commandBytes[1]);
 				flb.value = receiveFloat(data_buffer);
@@ -144,6 +163,7 @@ void SerialEventHandler::parseSerial() {
 				}
 				break;
 			case C_SETPRESSURECONSTANT:
+				/* reads pressure constant from serial and writes it to EEPROM */
 				data_buffer = readBytes(commandBytes[1]);
 				flb.value = receiveFloat(data_buffer);
 				for(int16_t i = 0; i < 4; i++) {
@@ -151,12 +171,14 @@ void SerialEventHandler::parseSerial() {
 				}
 				break;
 			case C_SETPRESSUREBASE:
+				/* gets the current base pressure and writes it to EEPROM */
 				int16_t raw_pressure;
 				raw_pressure = getRawPressure();
 				EEPROM.write(EEPROM_CALIB_BASE, ((uint8_t *)(&raw_pressure))[0]);
 				EEPROM.write(EEPROM_CALIB_BASE + 1, ((uint8_t *)(&raw_pressure))[1]);
 				break;
 			case C_GETDEPTH:
+				/* reads the current raw depth and then writes the depth in meters to serial */
 				if(getRawPressure() > 0) {
 					commandBytes[1] = 4;
 					Serial.write(commandBytes, 2);
@@ -164,6 +186,7 @@ void SerialEventHandler::parseSerial() {
 				}
 				break;
 			}
+			/* if the serial buffer was allocated, free it */
 			if(data_buffer != NULL) {
 				free(data_buffer);
 			}

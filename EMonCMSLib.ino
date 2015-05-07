@@ -39,6 +39,17 @@ AttributeValue attrVal[NUM_ATTR];
 uint16_t sensorReading = 0;
 uint64_t timeData = 0;
 
+/* declare unions to aid converting between data types and bytes */
+union floatBytes {
+	uint8_t bytes[4];
+	float value;
+};
+
+union intBytes {
+	uint8_t bytes[2];
+	int value;
+};
+
 /* Time in millis of last post sent time */
 unsigned long lastAttributePostTime = 0;
 
@@ -50,6 +61,7 @@ DES des;
 /* Sleep controller */
 Sleep sleep(&rtc, &radio, EEPROM_ALARM_START);
 
+/* puts the current time since boot into a data item */
 bool timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
 	timeData = millis();
@@ -59,6 +71,7 @@ bool timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	return true;
 }
 
+/* gets a raw pressure reading over i2c */
 int16_t getRawPressure() {
 	if(digitalRead(EN_PIN1) == LOW) {
 		digitalWrite(EN_PIN1, HIGH);
@@ -80,6 +93,9 @@ int16_t getRawPressure() {
 	}
 }
 
+/* puts the raw pressure reading into a data item.
+ *  when the gateway supports it the float of pressure will be used instead.
+ */
 bool pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	if(getRawPressure() > 0 && item != NULL) {
   		/* conversion from meters to kPa at 4deg c */
@@ -96,6 +112,7 @@ bool pressureAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	}
 }
 
+/* gets the current depth in meters */
 float getDepth() {
 	floatBytes m, c;
 	intBytes base;
@@ -126,9 +143,11 @@ float getDepth() {
 	return depth;
 }
 
+/* writes data to the hardware radio */
 uint16_t networkWriter(uint8_t type, uint8_t *buffer, uint16_t length) {
 	int size = 0;
 	uint8_t *send_buffer = NULL;
+	/* if there's encryption, use it */
 	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
 		size = encryptPacket(buffer, outgoing_buffer, length);
 		send_buffer = outgoing_buffer;
@@ -172,6 +191,7 @@ void nodeIDRegistered(uint16_t emonNodeID) {
 }
 
 void attributeRegistered(AttributeIdentifier *attr) {
+	/* save that attribute is registered to EEPROM */
 	for(int i = 0; i < NUM_ATTR; i++) {
 		if(emon->compareAttribute(attr, &(attrVal[i].attr))) {
 			EEPROM.write(ATTR_REGISTERED_START + i, 1);
@@ -179,12 +199,16 @@ void attributeRegistered(AttributeIdentifier *attr) {
 	}
 }
 
+/* called to enter programming mode */
 void programmingMode() {
+	/* enable serial */
 	Serial.begin(115200);
 	Serial.println("Programming Mode");
 	SerialEventHandler serialEvent(&rtc);
+	/* power up peripherals */
 	digitalWrite(RTC_EN, HIGH);
 	radio.begin();
+	/* attempt to read from serial and parse */
 	while(true) {
 		serialEvent.parseSerial();
 	}
@@ -233,21 +257,26 @@ bool decryptPacket(uint8_t *input, uint8_t *output, int read_size) {
 }
 
 void setup() {
+	/* use the 1.1V internal analog reference voltage, for battery level */
 	analogReference(INTERNAL);
-	
+
+	/* enable pullup on the pin that controls programming mode */
 	pinMode(PROG_MODE_PIN, INPUT_PULLUP);
-	
+
+	/* set peripherals default off */
 	pinMode(EN_PIN1, OUTPUT);
 	pinMode(EN_PIN2, OUTPUT);
 	digitalWrite(EN_PIN1, LOW);
 	digitalWrite(EN_PIN2, LOW);
 
+	/* intitialise i2c */
 	Wire.begin();
 
 	/* Enable the RTC */
 	pinMode(RTC_EN, OUTPUT);
 	digitalWrite(RTC_EN, HIGH);
 
+	/* seed the random nubmer table with the current timestamp */
 	randomSeed(rtc.get());
 
 	/* if the EEPROM is anything but 0 then reset all fields */
@@ -265,12 +294,15 @@ void setup() {
 		EEPROM.write(RF24NODEIDEEPROM, random(220, 248));
 	}
 
+	/* if the progrmaming mode pin is pulled down, enter programming mode */
 	if(!digitalRead(PROG_MODE_PIN)) {
 		programmingMode();
 	} else {
+		/* initialise debug */
 		DEBUG_INIT;
 	}
 
+	/* if encryption is enabled, read the key to RAM */
 	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
 		LOG(F("READING ENCRYPTION KEY\r\n"));
 		char keybuf[7];
@@ -281,7 +313,8 @@ void setup() {
 		}
 		LOG(F("\r\n"));
 	}
-	
+
+	/* read the rf24 node ID and set it */
 	LOG(F("Node id is ")); LOG(EEPROM.read(RF24NODEIDEEPROM)); LOG(F("\r\n"));
 	mesh.setNodeID(EEPROM.read(RF24NODEIDEEPROM));
 	radio.begin();
@@ -301,13 +334,15 @@ void setup() {
 	attrVal[ATTR_PRESSURE].attr.attributeID = 0x1010;
 	attrVal[ATTR_PRESSURE].attr.attributeNumber = 0x0;
 	attrVal[ATTR_PRESSURE].reader = pressureAttributeReader;
-	
+
+	/* load whether each attribute has been registered */
 	for(int i = 0; i < NUM_ATTR; i++) {
 		attrVal[i].registered = EEPROM.read(ATTR_REGISTERED_START + i);
 	}
 
 	/* read the emoncms node id and init emonCMS */
 	LOG(F("Setting up emon lib... "));
+	/* read the emon node if from EEPROM, by default after a reset this is 0, so unset */
 	uint16_t eMonNodeID = ((EEPROM.read(EMONNODEIDEEPROM1) & 0xFF) << 8) | (EEPROM.read(EMONNODEIDEEPROM2) & 0xFF);
 	emon = new EMonCMS(attrVal, NUM_ATTR, networkWriter, attributeRegistered, nodeIDRegistered, eMonNodeID);
 	LOG(F("done\r\n"));
@@ -321,25 +356,31 @@ void loop() {
 	/* check to see whether we have a node id */
 	emon->registerNode();
 
+	/* attempt to post the pressure attribute every ATTR_POST_WAIT milliseconds, if the attribute is registered */
 	if(millis() - lastAttributePostTime > ATTR_POST_WAIT && attrVal[ATTR_PRESSURE].registered) {
 		if(emon->postAttribute(&(attrVal[ATTR_PRESSURE].attr)) > 0) {
 			LOG(F("Sent attribute post\r\n"));
-			lastAttributePostTime = millis();
 		} else {
 			LOG(F("Failed to post attribute\r\n"));
 		}
+		lastAttributePostTime = millis();
 	}
 	
 	if(network.available()) {
 		RF24NetworkHeader header;
 		network.peek(header);
 
+		/* checks whether the header is a parseable ttype */
 		if(emon->isEMonCMSPacket(header.type)) {
 			/* Setup an EMonCMS packet */
 			int read = 0;
+			/* read the incoming packet */
 			if((read = network.read(header, incoming_buffer, MAX_PACKET_SIZE)) > sizeof(HeaderInfo)) {
+				/* decrypt it, this does nothing if encryption is disabled */
 				decryptPacket(incoming_buffer, outgoing_buffer, read);
+				/* do a sanity check to ensure the size reported in the header matches the size received */
 				if(((HeaderInfo *)outgoing_buffer)->dataSize < (MAX_PACKET_SIZE - sizeof(HeaderInfo))) {
+					/* allocate the number of data items specified in the header */
 					DataItem items[((HeaderInfo *)outgoing_buffer)->dataCount];
 					if(((HeaderInfo *)outgoing_buffer)->dataSize > (read - sizeof(HeaderInfo))) {
 						LOG(F("Size mismatch for incoming packet\r\n"));
@@ -348,6 +389,7 @@ void loop() {
 						LOG(F("\r\n"));
 					} else {
 						LOG(F("Parsing incoming packet...\r\n"));
+						/* try and parse the incoming packet */
 						if(!emon->parseEMonCMSPacket(((HeaderInfo *)outgoing_buffer),
 							header.type,
 							&(outgoing_buffer[sizeof(HeaderInfo)]),
