@@ -16,7 +16,11 @@ Sleep::Sleep(DS1302RTC *rtc, RF24 *radio, int wakeTimesAddress) {
 		this->wakeLength = 0xFF;
 	}
 	this->numWakeTimes = EEPROM.read(wakeTimesAddress + 1);
-	this->wakeTimes = (WakeTime *)malloc(sizeof(WakeTime) * numWakeTimes);
+	if(numWakeTimes > 0) {
+		this->wakeTimes = (WakeTime *)malloc(sizeof(WakeTime) * numWakeTimes);
+	} else {
+		this->wakeTimes = NULL;
+	}
 	for(int i = 0; i < this->numWakeTimes; i++) {
 		this->wakeTimes[i].hour = EEPROM.read((i * 2) + 2 + wakeTimesAddress);
 		this->wakeTimes[i].minute = EEPROM.read((i * 2) + 3 + wakeTimesAddress);
