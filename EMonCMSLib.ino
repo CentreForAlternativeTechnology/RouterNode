@@ -72,10 +72,10 @@ int16_t getRawPressure() {
 		}
 		
 		sensorReading = (buffer[1] << 8) | buffer[0];
-		LOG(F("pressureAttributeReader: value read as ")); LOG(sensorReading); LOG(F("\r\n"));
+		//LOG(F("pressureAttributeReader: value read as ")); LOG(sensorReading); LOG(F("\r\n"));
   		return sensorReading;
 	} else {
-		LOG(F("getRawPressure: Sensor read failed\r\n"));
+		//LOG(F("getRawPressure: Sensor read failed\r\n"));
 		return 0;
 	}
 }
@@ -200,17 +200,18 @@ int encryptPacket(uint8_t *input, uint8_t *output, uint8_t data_size) {
 	}
 	LOG(F("\r\n"));
 #endif
-	output[0] = data_size + (8 - (data_size % 8)) - 1;
+	output[0] = (data_size + (8 - (data_size % 8)) - 1) / 8;
+	output[0] += ((data_size + (8 - (data_size % 8)) - 1) % 8) ? 1 : 0;
 	des.do_3des_encrypt(input, data_size, &(output[1]), encryptionKey);
 #ifdef S_DEBUG
 	LOG(F("Encrypted data is... "));
-	for(int i = 0; i < (data_size + (8 - (data_size % 8)) - 1); i++) {
-		sprintf(buff, "0x%x, ", (output[i + 1]));
+	for(int i = 0; i < (data_size + (8 - (data_size % 8))) + 1; i++) {
+		sprintf(buff, "0x%x, ", (output[i]));
 		LOG(buff);
 	}
 	LOG(F("\r\n"));
 #endif
-	return data_size + (8 - (data_size % 8));
+	return data_size + (8 - (data_size % 8)) + 1;
 }
 
 bool decryptPacket(uint8_t *input, uint8_t *output, int read_size) {
@@ -270,9 +271,9 @@ void setup() {
 		DEBUG_INIT;
 	}
 
-	char keybuf[7];
 	if(EEPROM.read(EEPROM_ENCRYPT_ENABLE)) {
 		LOG(F("READING ENCRYPTION KEY\r\n"));
+		char keybuf[7];
 		for(int i = 0; i < 24; i++) {
 			encryptionKey[i] = EEPROM.read(EEPROM_ENCRYPT_KEY + i);
 			sprintf(keybuf, "0x%x, ", encryptionKey[i]);
@@ -289,6 +290,7 @@ void setup() {
 	LOG(F("Connecting to mesh...\r\n"));
 	mesh.begin(MESH_DEFAULT_CHANNEL, RF24_1MBPS);
 
+	LOG(F("Setting up attributes\r\n"));
 	/* setup the time reading attribute */
 	attrVal[ATTR_TIME].attr.groupID = 10;
 	attrVal[ATTR_TIME].attr.attributeID = 20;
