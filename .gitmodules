@@ -1,12 +1,12 @@
-[submodule "RF24"]
+[submodule "libraries/RF24"]
 	path = libraries/RF24
 	url = https://github.com/CentreForAlternativeTechnology/RF24.git
-[submodule "RF24Network"]
+[submodule "libraries/RF24Network"]
 	path = libraries/RF24Network
 	url = https://github.com/TMRh20/RF24Network.git
-[submodule "RF24Mesh"]
-	path = libraries/RF24Mesh
-	url = https://github.com/CentreForAlternativeTechnology/RF24Mesh.git
-[submodule "DES"]
+[submodule "libraries/DES"]
 	path = libraries/DES
 	url = https://github.com/CentreForAlternativeTechnology/ArduinoDES.git
+[submodule "libraries/RF24Mesh"]
+	path = libraries/RF24Mesh
+	url = https://github.com/CentreForAlternativeTechnology/RF24Mesh.git
