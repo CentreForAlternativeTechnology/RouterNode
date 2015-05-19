@@ -1,1 +1,4 @@
-This repository contains a library to create packets in the format to be read by the EMONCMS gateway and an example using RF24Mesh library.
+This repository contains a library to create packets in the format to be read by the EMONCMS gateway.
+It also interprets requests for packets.
+
+The sketch included supports sleeping the node, configuring it and is designed to be used on the pressure sensor board.
