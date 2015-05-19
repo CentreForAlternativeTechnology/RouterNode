@@ -1,0 +1,6 @@
+[submodule "RF24"]
+	path = libraries/RF24
+	url = https://github.com/CentreForAlternativeTechnology/RF24.git
+[submodule "DES"]
+	path = libraries/DES
+	url = https://github.com/CentreForAlternativeTechnology/ArduinoDES.git
