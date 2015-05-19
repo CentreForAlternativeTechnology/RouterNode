@@ -11,6 +11,3 @@
 [submodule "libraries/RF24Mesh"]
 	path = libraries/RF24Mesh
 	url = https://github.com/CentreForAlternativeTechnology/RF24Mesh.git
-[submodule "libraries/EMonCMS"]
-	path = libraries/EMonCMS
-	url = https://github.com/CentreForAlternativeTechnology/EMonCMSLowPowerStack.git
