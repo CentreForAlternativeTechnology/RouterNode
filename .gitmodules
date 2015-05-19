@@ -4,6 +4,7 @@
 [submodule "libraries/RF24Network"]
 	path = libraries/RF24Network
 	url = https://github.com/TMRh20/RF24Network.git
+	branch = Development
 [submodule "libraries/DES"]
 	path = libraries/DES
 	url = https://github.com/CentreForAlternativeTechnology/ArduinoDES.git
