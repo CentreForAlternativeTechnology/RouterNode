@@ -96,7 +96,6 @@ void Sleep::sleepUntil(time_t untilTime) {
 
 	/* enable peripherals on leaving sleep */
 	digitalWrite(RTC_EN, HIGH);
-	digitalWrite(EN_PIN1, HIGH);
 
 	radio->powerUp();
 }
