@@ -76,8 +76,6 @@ void Sleep::setupSleep() {
 void Sleep::sleepUntil(time_t untilTime) {
 	time_t currentTime;
 	/* [pwer down all peripherals */
-	digitalWrite(EN_PIN1, LOW);
-	digitalWrite(EN_PIN2, LOW);
 	digitalWrite(RTC_EN, LOW);
 	radio->powerDown();
 

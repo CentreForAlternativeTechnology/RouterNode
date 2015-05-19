@@ -3,19 +3,8 @@
 #include <DS1302RTC.h>
 #include <EEPROM.h>
 #include <Wire.h>
-#include <EMonCMS.h>
 #include "SerialEventHandler.h"
 #include "Definitions.h"
-
-/* these are functions in the main sketch that we want to use here */
-extern int16_t getRawPressure();
-extern float getDepth();
-
-/* used for easily converting between float and bytes */
-union floatBytes {
-	uint8_t bytes[4];
-	float value;
-};
 
 #ifdef DEBUG
 /* creates a debug type message for the configuration program */
@@ -66,22 +55,6 @@ int16_t receiveShort(uint8_t *inp) {
 	return ret;
 }
 
-/* converts a float to bytes and sends it */
-void sendFloat(float value) {
-	floatBytes b;
-	b.value = value;
-	Serial.write(b.bytes, 4);
-}
-
-/* converts bytes into a float */
-float receiveFloat(uint8_t *inp) {
-	floatBytes b;
-	for(int i = 0; i < 4; i++) {
-		b.bytes[i] = inp[i];
-	}
-	return b.value;
-}
-
 void SerialEventHandler::parseSerial() {
 		uint8_t commandBytes[2];
 		uint8_t *data_buffer = NULL;
@@ -128,12 +101,6 @@ void SerialEventHandler::parseSerial() {
 				Serial.write(commandBytes, (size_t)2);
 				sendShort(freeRam());
 				break;
-			case C_GETPRESSURE:
-				/* sends the raw pressure reading back */
-				commandBytes[1] = (uint8_t)0x02;
-				Serial.write(commandBytes, (size_t)2);
-				sendShort(getRawPressure());
-				break;
 			case C_GETEEPROM:
 				/* gets a section of EEPROM and writes it to serial */
 				data_buffer = readBytes(commandBytes[1]);
@@ -152,38 +119,6 @@ void SerialEventHandler::parseSerial() {
 				/* sets a single value on EEPROM */
 				data_buffer = readBytes(commandBytes[1]);
 				EEPROM.write(receiveShort(&(data_buffer[0])), (uint8_t)(receiveShort(&(data_buffer[2]))));
-				break;
-			case C_SETPRESSUREGRADIENT:
-				/* reads pressure gradient from serial and writes it to EEPROM */
-				floatBytes flb;
-				data_buffer = readBytes(commandBytes[1]);
-				flb.value = receiveFloat(data_buffer);
-				for(int16_t i = 0; i < 4; i++) {
-					EEPROM.write(EEPROM_CALIB_GRAD + i, flb.bytes[i]);
-				}
-				break;
-			case C_SETPRESSURECONSTANT:
-				/* reads pressure constant from serial and writes it to EEPROM */
-				data_buffer = readBytes(commandBytes[1]);
-				flb.value = receiveFloat(data_buffer);
-				for(int16_t i = 0; i < 4; i++) {
-					EEPROM.write(EEPROM_CALIB_CONST + i, flb.bytes[i]);
-				}
-				break;
-			case C_SETPRESSUREBASE:
-				/* gets the current base pressure and writes it to EEPROM */
-				int16_t raw_pressure;
-				raw_pressure = getRawPressure();
-				EEPROM.write(EEPROM_CALIB_BASE, ((uint8_t *)(&raw_pressure))[0]);
-				EEPROM.write(EEPROM_CALIB_BASE + 1, ((uint8_t *)(&raw_pressure))[1]);
-				break;
-			case C_GETDEPTH:
-				/* reads the current raw depth and then writes the depth in meters to serial */
-				if(getRawPressure() > 0) {
-					commandBytes[1] = 4;
-					Serial.write(commandBytes, 2);
-					sendFloat(getDepth());
-				}
 				break;
 			}
 			/* if the serial buffer was allocated, free it */
