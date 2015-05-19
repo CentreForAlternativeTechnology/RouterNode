@@ -28,7 +28,7 @@ EMonCMS *emon = NULL;
 
 /* Attribute definitions */
 enum ATTRS {
-	ATTR_TIME,
+	//ATTR_TIME,
 	ATTR_PRESSURE,
 	NUM_ATTR
 };
@@ -62,6 +62,7 @@ DES des;
 Sleep sleep(&rtc, &radio, EEPROM_ALARM_START);
 
 /* puts the current time since boot into a data item */
+/*
 bool timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: enter\r\n");
 	timeData = millis();
@@ -70,6 +71,7 @@ bool timeAttributeReader(AttributeIdentifier *attr, DataItem *item) {
 	LOG("timeAttributeReader: done\r\n");
 	return true;
 }
+*/
 
 /* gets a raw pressure reading over i2c */
 int16_t getRawPressure() {
@@ -325,10 +327,12 @@ void setup() {
 
 	LOG(F("Setting up attributes\r\n"));
 	/* setup the time reading attribute */
+	/*
 	attrVal[ATTR_TIME].attr.groupID = 10;
 	attrVal[ATTR_TIME].attr.attributeID = 20;
 	attrVal[ATTR_TIME].attr.attributeNumber = 40;
 	attrVal[ATTR_TIME].reader = timeAttributeReader;
+	*/
 	
 	attrVal[ATTR_PRESSURE].attr.groupID = 0x0403;
 	attrVal[ATTR_PRESSURE].attr.attributeID = 0x1010;
