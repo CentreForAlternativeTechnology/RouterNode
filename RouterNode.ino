@@ -92,12 +92,10 @@ void loop() {
 	sleep.checkSleep();
 
 	// If a write fails, check connectivity to the mesh network
-	if( ! mesh.checkConnection() ){
+	if(!mesh.checkConnection() ){
 		//refresh the network address
 		Serial.println("Renewing Address");
 		mesh.renewAddress(); 
-	}else{
-		Serial.println("Send fail, Test OK"); 
 	}
 	
 	mesh.update();
